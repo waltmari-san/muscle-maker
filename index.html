@@ -19,7 +19,7 @@
   --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;
   --p:#34D3B0;--c:#F2A541;--f:#B79CFF;
   --cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
-  --st:max(0px,calc(env(safe-area-inset-top,0px) + var(--adjT,0px)));--sb:max(0px,calc(var(--sbBase,env(safe-area-inset-bottom,0px)) + var(--adjB,0px)));
+  --st:calc(env(safe-area-inset-top,0px) + 8px);--sb:var(--sbBase,env(safe-area-inset-bottom,0px));
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
@@ -27,7 +27,7 @@ button,input,select{font-family:inherit;color:inherit}
 button{cursor:pointer}
 input{font-size:16px}
 html,body{overflow:hidden}
-/* #app is sized from the real window height (see fit()) and can be nudged down in Settings → Screen fit.
+/* #app is sized from the real window height (see fit()).
    The transform makes every fixed element (tab bar, sheets, toasts) move with it. */
 #app{position:fixed;top:0;left:0;right:0;height:var(--apph,100%);display:flex;flex-direction:column;transform:translateZ(0);overflow:hidden}
 .titlebtn{border:0;background:none;padding:0;width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
@@ -184,7 +184,13 @@ function freshState() {
   };
 }
 let S;
-try { S = JSON.parse(localStorage.getItem(KEY)) || freshState(); } catch (e) { S = freshState(); }
+try { S = JSON.parse(localStorage.getItem(KEY)) || freshState(); } catch (e) {
+  // never silently overwrite data we couldn't read: keep the raw copy next to it
+  try { const raw = localStorage.getItem(KEY); if (raw) localStorage.setItem(KEY + '.unreadable.' + Date.now(), raw); } catch (e2) { /* ignore */ }
+  S = freshState();
+}
+// ask the browser to keep this app's storage even when the phone is low on space
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* ignore */ }
 function migrate(d) {
   d.stash = d.stash || []; d.plan = d.plan || []; d.shop = d.shop || []; d.cart = d.cart || {};
   if (!d.v || d.v < 2) d.v = 2;
@@ -346,6 +352,20 @@ function tabbar() {
   return `<nav class="tabbar" aria-label="Calorie tracker">${t.map(([k, l, ic]) => `<button type="button" class="${ui.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}">${svg(ic, 22, 1.8)}${l}</button>`).join('')}</nav>`;
 }
 
+/* ---------- backup reminder ---------- */
+function backupDue() {
+  const hasData = S.foods.length || S.log.length || S.stash.length;
+  const since = S.lastExport ? daysBetween(keyOf(S.lastExport), todayKey()) : null;
+  const snoozed = S.backupSnooze && S.backupSnooze > Date.now();
+  return hasData && !snoozed && (since == null || since >= 7) ? { since } : null;
+}
+function backupNudge() {
+  const d = backupDue(); if (!d) return '';
+  return `<section aria-label="Backup" class="card between" style="padding:12px 8px 12px 16px;gap:10px">
+    <span class="stack" style="gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">Time for a backup</span><span class="muted" style="font-size:12px">${d.since == null ? 'Never backed up' : 'Last backup ' + d.since + ' days ago'} · save it to Files / iCloud</span></span>
+    <span class="rowc" style="gap:2px;flex:none"><button type="button" class="btn" data-a="backupLater" style="color:var(--muted);font-weight:500;font-size:14px;padding:0 8px">Later</button><button type="button" class="btn" data-a="export" style="font-size:14px;padding:0 8px">Back up</button></span></section>`;
+}
+
 /* ---------- Today / day view ---------- */
 function renderDay(k, isToday) {
   const tg = targetFor(k), tot = dayTotals(k);
@@ -364,6 +384,7 @@ function renderDay(k, isToday) {
       <div class="track" style="height:10px"><span style="width:${fillA}%;background:var(--accent)"></span>${over ? `<span style="width:${100 - fillA}%;background:var(--bulk)"></span>` : ''}</div>
     </section>
     <section aria-label="Macros">${macroBars(tot, tg)}</section>
+    ${isToday ? backupNudge() : ''}
     <section aria-label="Timeline" class="stack" style="gap:10px">
       <h2 class="sec" style="font-size:13px">Timeline</h2>
       ${entries.length ? `<div class="stack">${entries.map((e) => {
@@ -708,19 +729,14 @@ function renderSettings() {
       <label class="between" style="min-height:56px;padding:0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px">Maintenance</span><span class="rowc" style="gap:6px"><input id="maint" value="${S.maintenance}" inputmode="numeric" aria-label="Maintenance calories" style="width:80px;border:0;outline:none;background:none;font-size:16px;font-weight:600;text-align:right;padding:0"><span class="muted" style="font-size:13px">kcal</span></span></label>
       <span class="muted" style="font-size:12px;padding:0 4px">Used for the History colors (deficit / maintenance / surplus) and as the base for new periods.</span>
     </section>
-    <section class="stack" aria-label="Screen fit" style="gap:12px"><h2 class="sec" style="font-size:13px">Screen fit</h2>
-      <div class="stack" style="border-radius:16px;background:var(--surface);overflow:hidden">${[['t', 'Top space', 'Pushes the title down, away from the status bar'], ['b', 'Bottom space', 'Space under the tab bar icons']].map(([k, l, d], j) => `<div class="between" style="min-height:60px;padding:0 8px 0 16px;${j ? 'border-top:1px solid var(--line)' : ''}"><span class="stack" style="gap:2px;min-width:0"><span style="font-size:16px">${l} <span class="muted num" style="font-size:13px">${ADJ[k] ? (ADJ[k] > 0 ? '+' : '−') + Math.abs(ADJ[k]) : 'auto'}</span></span><span class="muted" style="font-size:12px">${d}</span></span>
-        <div class="stepper" style="background:var(--sheet);flex:none"><button type="button" aria-label="Less ${l.toLowerCase()}" data-a="adj" data-k="${k}" data-d="-4">${svg(I.minus, 16, 2.4)}</button><button type="button" aria-label="More ${l.toLowerCase()}" data-a="adj" data-k="${k}" data-d="4">${svg(I.plus, 16, 2.4)}</button></div></div>`).join('')}</div>
-      <span class="muted" style="font-size:12px;padding:0 4px">Saved on this phone only.${ADJ.t || ADJ.b ? ` <button type="button" class="btn" data-a="adjReset" style="min-height:0;padding:0;font-size:12px">Reset</button>` : ''}<br><span class="num" style="font-size:11px;color:#5A6477">${esc(screenInfo())}</span></span>
-    </section>
     <section class="stack" aria-label="Data" style="gap:12px"><h2 class="sec" style="font-size:13px">Data</h2>
       <div class="stack" style="border-radius:16px;background:var(--surface);overflow:hidden">
         <button type="button" data-a="export" style="min-height:52px;padding:0 16px;border:0;border-bottom:1px solid var(--line);background:none;font-size:16px;text-align:left;display:flex;justify-content:space-between;align-items:center">Export backup <span class="muted" style="font-size:12px">${S.lastExport ? 'last: ' + dShort(keyOf(S.lastExport)) : 'never'}</span></button>
         <button type="button" data-a="import" style="min-height:52px;padding:0 16px;border:0;background:none;font-size:16px;text-align:left">Import backup</button>
       </div>
-      <span class="muted" style="font-size:12px;padding:0 4px">Your data lives only on this phone. The backup covers both the Calorie and Stash tracker.</span>
+      <span class="muted" style="font-size:12px;padding:0 4px">Your data lives only in this app on this phone. Updates never touch it, but removing the app from the Home Screen does, and Safari keeps a separate copy. The backup covers both trackers.</span>
     </section>
-    <p class="muted" style="text-align:center;font-size:12px;margin:8px 0 0">Mariboy's Muscle Maker · v2</p></div>`;
+    <p class="muted" style="text-align:center;font-size:12px;margin:8px 0 0">Mariboy's Muscle Maker · v2.5</p></div>`;
 }
 
 /* ---------- Period editor ---------- */
@@ -1263,8 +1279,6 @@ const A = {
   closeAppMenu() { ui.appMenu = false; },
   setApp(el) { ui.app = el.dataset.k; ui.appMenu = false; lsSet('mmm.app', ui.app); },
   stab(el) { ui.stab = el.dataset.k; },
-  adj(el) { const k = el.dataset.k; ADJ[k] = Math.max(-60, Math.min(120, ADJ[k] + +el.dataset.d)); lsSet('mmm.adj', JSON.stringify(ADJ)); fit(); },
-  adjReset() { ADJ.t = 0; ADJ.b = 0; lsSet('mmm.adj', JSON.stringify(ADJ)); fit(); },
   // stash
   stashAdd() { ui.sheet = { tab: S.foods.some((f) => f.lastUsed) ? 'recent' : 'search', q: '', pick: 'stash', date: todayKey() }; },
   editStash(el) { const it = sItem(el.dataset.id); openStashEdit(it.foodId ? food(it.foodId) : null, { id: it.id }); },
@@ -1365,18 +1379,18 @@ const A = {
     if (!(base >= 0)) return; q.onSave(base); save(); ui.qty = null;
   },
   export() {
-    S.lastExport = Date.now(); save();
     const name = 'muscle-maker-backup-' + todayKey() + '.json';
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
     try {
       const file = new File([blob], name, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: 'Muscle Maker backup' }).catch(() => {}); return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: 'Muscle Maker backup' }).then(() => { S.lastExport = Date.now(); S.backupSnooze = null; save(); toast('Backup saved'); render(); }).catch(() => {}); return; }
     } catch (e) { /* fall through to download */ }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    toast('Backup exported');
+    S.lastExport = Date.now(); S.backupSnooze = null; save(); toast('Backup exported');
   },
-  import() { document.getElementById('importFile').click(); }
+  import() { document.getElementById('importFile').click(); },
+  backupLater() { S.backupSnooze = Date.now() + 3 * 86400000; save(); }
 };
 function openIconPick(kind, obj) {
   ui.iconPick = { title: 'Added to favorites', name: obj.name, get: () => obj.icon, set: (k) => { obj.icon = obj.icon === k ? null : k; save(); } };
@@ -1439,10 +1453,8 @@ document.addEventListener('keydown', (ev) => {
 
 /* ---------- screen fit ----------
    iOS 26 sometimes sizes viewport-filling fixed layouts wrong (tab bar floats, content shifts up).
-   We size #app from the real window height; on the Home Screen app we use the full screen height.
-   ADJ adds to the top / bottom safe areas (Settings → Screen fit), stored per device. */
+   We size #app from the real window height and detect the Home Screen bug where the page is cut short at the bottom. */
 let SHORT = false;
-const ADJ = (() => { try { const a = JSON.parse(lsGet('mmm.adj', '{}')); return { t: Math.round(num(a.t)), b: Math.round(num(a.b)) }; } catch (e) { return { t: 0, b: 0 }; } })();
 function fit() {
   const root = document.documentElement;
   // iOS can leave the whole page scrolled up (e.g. after the keyboard closes); the app never scrolls the page itself, so snap it back
@@ -1455,7 +1467,6 @@ function fit() {
   SHORT = standalone && portrait && ins.t > 20 && Math.abs(screen.height - window.innerHeight - ins.t) <= 4;
   root.style.setProperty('--apph', window.innerHeight + 'px');
   if (SHORT) root.style.setProperty('--sbBase', '4px'); else root.style.removeProperty('--sbBase');
-  root.style.setProperty('--adjT', ADJ.t + 'px'); root.style.setProperty('--adjB', ADJ.b + 'px');
 }
 fit();
 window.addEventListener('resize', fit);
@@ -1466,19 +1477,12 @@ document.addEventListener('focusout', () => setTimeout(fit, 120));
 if (window.visualViewport) { visualViewport.addEventListener('resize', () => setTimeout(fit, 60)); visualViewport.addEventListener('scroll', () => { if (!document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) fit(); }); }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(fit, 50); });
 setTimeout(fit, 300);
-/* numbers for Settings → Screen fit, to diagnose layout problems on the phone */
+/* safe-area insets as numbers (used by fit) */
 function safeInsets() {
   const pr = document.createElement('div');
   pr.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
   document.body.appendChild(pr); const cs = getComputedStyle(pr); const r = { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; pr.remove();
   return r;
-}
-function screenInfo() {
-  const si = safeInsets(); const st = si.t, sb = si.b;
-  const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  const vv = window.visualViewport; const app = document.getElementById('app').getBoundingClientRect();
-  return (standalone ? 'Home Screen app' : 'Browser') + ' · window ' + window.innerWidth + '×' + window.innerHeight + ' · screen ' + screen.width + '×' + screen.height +
-    ' · safe ' + Math.round(st) + '/' + Math.round(sb) + ' · vv ' + (vv ? Math.round(vv.height) + ' @' + Math.round(vv.offsetTop) : '–') + ' · scroll ' + Math.round(window.scrollY) + ' · app ' + Math.round(app.top) + '–' + Math.round(app.bottom) + (SHORT ? ' · short-fix' : '') + ' · v2.4';
 }
 
 render();
