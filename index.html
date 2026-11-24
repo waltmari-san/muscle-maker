@@ -19,7 +19,7 @@
   --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;
   --p:#34D3B0;--c:#F2A541;--f:#B79CFF;
   --cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
-  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  --st:max(0px,calc(env(safe-area-inset-top,0px) + var(--adjT,0px)));--sb:max(0px,calc(env(safe-area-inset-bottom,0px) + var(--adjB,0px)));
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
@@ -29,7 +29,7 @@ input{font-size:16px}
 html,body{overflow:hidden}
 /* #app is sized from the real window height (see fit()) and can be nudged down in Settings → Screen fit.
    The transform makes every fixed element (tab bar, sheets, toasts) move with it. */
-#app{position:fixed;top:0;left:0;right:0;height:var(--apph,100%);display:flex;flex-direction:column;transform:translateY(var(--nudge,0px));overflow:hidden}
+#app{position:fixed;top:0;left:0;right:0;height:var(--apph,100%);display:flex;flex-direction:column;transform:translateZ(0);overflow:hidden}
 .titlebtn{border:0;background:none;padding:0;width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
 .modechip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px 0 10px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;white-space:nowrap}
 .menu{position:absolute;left:16px;right:16px;top:calc(var(--st) + 50px);border-radius:18px;background:var(--surface);padding:6px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
@@ -709,9 +709,9 @@ function renderSettings() {
       <span class="muted" style="font-size:12px;padding:0 4px">Used for the History colors (deficit / maintenance / surplus) and as the base for new periods.</span>
     </section>
     <section class="stack" aria-label="Screen fit" style="gap:12px"><h2 class="sec" style="font-size:13px">Screen fit</h2>
-      <div class="between" style="min-height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--surface)"><span class="stack" style="gap:2px"><span style="font-size:16px">Move everything down</span><span class="muted num" style="font-size:12px">${NUDGE ? (NUDGE > 0 ? '+' : '−') + Math.abs(NUDGE) + ' pt' : 'off'}</span></span>
-        <div class="stepper" style="background:var(--sheet)"><button type="button" aria-label="Move up" data-a="nudge" data-k="-4">${svg(I.minus, 16, 2.4)}</button><button type="button" aria-label="Move down" data-a="nudge" data-k="4">${svg(I.plus, 16, 2.4)}</button></div></div>
-      <span class="muted" style="font-size:12px;padding:0 4px">If the tab bar floats above the bottom edge or the title sits under the status bar, nudge until it fits. Saved on this phone only.<br><span class="num" style="font-size:11px;color:#5A6477">${esc(screenInfo())}</span>${NUDGE ? ` <button type="button" class="btn" data-a="nudge" data-k="0" style="min-height:0;padding:0;font-size:12px">Reset</button>` : ''}</span>
+      <div class="stack" style="border-radius:16px;background:var(--surface);overflow:hidden">${[['t', 'Top space', 'Pushes the title down, away from the status bar'], ['b', 'Bottom space', 'Space under the tab bar icons']].map(([k, l, d], j) => `<div class="between" style="min-height:60px;padding:0 8px 0 16px;${j ? 'border-top:1px solid var(--line)' : ''}"><span class="stack" style="gap:2px;min-width:0"><span style="font-size:16px">${l} <span class="muted num" style="font-size:13px">${ADJ[k] ? (ADJ[k] > 0 ? '+' : '−') + Math.abs(ADJ[k]) : 'auto'}</span></span><span class="muted" style="font-size:12px">${d}</span></span>
+        <div class="stepper" style="background:var(--sheet);flex:none"><button type="button" aria-label="Less ${l.toLowerCase()}" data-a="adj" data-k="${k}" data-d="-4">${svg(I.minus, 16, 2.4)}</button><button type="button" aria-label="More ${l.toLowerCase()}" data-a="adj" data-k="${k}" data-d="4">${svg(I.plus, 16, 2.4)}</button></div></div>`).join('')}</div>
+      <span class="muted" style="font-size:12px;padding:0 4px">Saved on this phone only.${ADJ.t || ADJ.b ? ` <button type="button" class="btn" data-a="adjReset" style="min-height:0;padding:0;font-size:12px">Reset</button>` : ''}<br><span class="num" style="font-size:11px;color:#5A6477">${esc(screenInfo())}</span></span>
     </section>
     <section class="stack" aria-label="Data" style="gap:12px"><h2 class="sec" style="font-size:13px">Data</h2>
       <div class="stack" style="border-radius:16px;background:var(--surface);overflow:hidden">
@@ -1263,7 +1263,8 @@ const A = {
   closeAppMenu() { ui.appMenu = false; },
   setApp(el) { ui.app = el.dataset.k; ui.appMenu = false; lsSet('mmm.app', ui.app); },
   stab(el) { ui.stab = el.dataset.k; },
-  nudge(el) { const k = +el.dataset.k; NUDGE = k === 0 ? 0 : Math.max(-160, Math.min(160, NUDGE + k)); lsSet('mmm.nudge', String(NUDGE)); fit(); },
+  adj(el) { const k = el.dataset.k; ADJ[k] = Math.max(-60, Math.min(120, ADJ[k] + +el.dataset.d)); lsSet('mmm.adj', JSON.stringify(ADJ)); fit(); },
+  adjReset() { ADJ.t = 0; ADJ.b = 0; lsSet('mmm.adj', JSON.stringify(ADJ)); fit(); },
   // stash
   stashAdd() { ui.sheet = { tab: S.foods.some((f) => f.lastUsed) ? 'recent' : 'search', q: '', pick: 'stash', date: todayKey() }; },
   editStash(el) { const it = sItem(el.dataset.id); openStashEdit(it.foodId ? food(it.foodId) : null, { id: it.id }); },
@@ -1439,8 +1440,8 @@ document.addEventListener('keydown', (ev) => {
 /* ---------- screen fit ----------
    iOS 26 sometimes sizes viewport-filling fixed layouts wrong (tab bar floats, content shifts up).
    We size #app from the real window height; on the Home Screen app we use the full screen height.
-   NUDGE is a manual offset from Settings → Screen fit, stored per device. */
-let NUDGE = Math.round(num(lsGet('mmm.nudge', '0')));
+   ADJ adds to the top / bottom safe areas (Settings → Screen fit), stored per device. */
+const ADJ = (() => { try { const a = JSON.parse(lsGet('mmm.adj', '{}')); return { t: Math.round(num(a.t)), b: Math.round(num(a.b)) }; } catch (e) { return { t: 0, b: 0 }; } })();
 function fit() {
   const root = document.documentElement;
   // iOS can leave the whole page scrolled up (e.g. after the keyboard closes); the app never scrolls the page itself, so snap it back
@@ -1450,7 +1451,7 @@ function fit() {
   const portrait = window.innerWidth < window.innerHeight;
   if (standalone && portrait && screen.height > h && screen.height - h < 200) h = screen.height;
   root.style.setProperty('--apph', h + 'px');
-  root.style.setProperty('--nudge', NUDGE + 'px');
+  root.style.setProperty('--adjT', ADJ.t + 'px'); root.style.setProperty('--adjB', ADJ.b + 'px');
 }
 fit();
 window.addEventListener('resize', fit);
@@ -1469,7 +1470,7 @@ function screenInfo() {
   const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   const vv = window.visualViewport; const app = document.getElementById('app').getBoundingClientRect();
   return (standalone ? 'Home Screen app' : 'Browser') + ' · window ' + window.innerWidth + '×' + window.innerHeight + ' · screen ' + screen.width + '×' + screen.height +
-    ' · safe ' + Math.round(st) + '/' + Math.round(sb) + ' · vv ' + (vv ? Math.round(vv.height) + ' @' + Math.round(vv.offsetTop) : '–') + ' · scroll ' + Math.round(window.scrollY) + ' · app ' + Math.round(app.top) + '–' + Math.round(app.bottom) + ' · v2.2';
+    ' · safe ' + Math.round(st) + '/' + Math.round(sb) + ' · vv ' + (vv ? Math.round(vv.height) + ' @' + Math.round(vv.offsetTop) : '–') + ' · scroll ' + Math.round(window.scrollY) + ' · app ' + Math.round(app.top) + '–' + Math.round(app.bottom) + ' · v2.3';
 }
 
 render();
