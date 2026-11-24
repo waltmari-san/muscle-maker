@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#090C13">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Muscle Maker">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -19,7 +19,7 @@
   --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;
   --p:#34D3B0;--c:#F2A541;--f:#B79CFF;
   --cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
-  --st:max(0px,calc(env(safe-area-inset-top,0px) + var(--adjT,0px)));--sb:max(0px,calc(env(safe-area-inset-bottom,0px) + var(--adjB,0px)));
+  --st:max(0px,calc(env(safe-area-inset-top,0px) + var(--adjT,0px)));--sb:max(0px,calc(var(--sbBase,env(safe-area-inset-bottom,0px)) + var(--adjB,0px)));
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
@@ -1441,16 +1441,20 @@ document.addEventListener('keydown', (ev) => {
    iOS 26 sometimes sizes viewport-filling fixed layouts wrong (tab bar floats, content shifts up).
    We size #app from the real window height; on the Home Screen app we use the full screen height.
    ADJ adds to the top / bottom safe areas (Settings → Screen fit), stored per device. */
+let SHORT = false;
 const ADJ = (() => { try { const a = JSON.parse(lsGet('mmm.adj', '{}')); return { t: Math.round(num(a.t)), b: Math.round(num(a.b)) }; } catch (e) { return { t: 0, b: 0 }; } })();
 function fit() {
   const root = document.documentElement;
   // iOS can leave the whole page scrolled up (e.g. after the keyboard closes); the app never scrolls the page itself, so snap it back
   if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
   const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  let h = window.innerHeight;
   const portrait = window.innerWidth < window.innerHeight;
-  if (standalone && portrait && screen.height > h && screen.height - h < 200) h = screen.height;
-  root.style.setProperty('--apph', h + 'px');
+  const ins = safeInsets();
+  /* iOS 26 Home Screen bug: the page starts under the status bar but is cut short by the status bar's height at the bottom,
+     so it never reaches the home indicator. Then the bottom safe area is empty space we can't use: drop it. */
+  SHORT = standalone && portrait && ins.t > 20 && Math.abs(screen.height - window.innerHeight - ins.t) <= 4;
+  root.style.setProperty('--apph', window.innerHeight + 'px');
+  if (SHORT) root.style.setProperty('--sbBase', '4px'); else root.style.removeProperty('--sbBase');
   root.style.setProperty('--adjT', ADJ.t + 'px'); root.style.setProperty('--adjB', ADJ.b + 'px');
 }
 fit();
@@ -1463,14 +1467,18 @@ if (window.visualViewport) { visualViewport.addEventListener('resize', () => set
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(fit, 50); });
 setTimeout(fit, 300);
 /* numbers for Settings → Screen fit, to diagnose layout problems on the phone */
-function screenInfo() {
+function safeInsets() {
   const pr = document.createElement('div');
   pr.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
-  document.body.appendChild(pr); const cs = getComputedStyle(pr); const st = parseFloat(cs.paddingTop) || 0, sb = parseFloat(cs.paddingBottom) || 0; pr.remove();
+  document.body.appendChild(pr); const cs = getComputedStyle(pr); const r = { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; pr.remove();
+  return r;
+}
+function screenInfo() {
+  const si = safeInsets(); const st = si.t, sb = si.b;
   const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   const vv = window.visualViewport; const app = document.getElementById('app').getBoundingClientRect();
   return (standalone ? 'Home Screen app' : 'Browser') + ' · window ' + window.innerWidth + '×' + window.innerHeight + ' · screen ' + screen.width + '×' + screen.height +
-    ' · safe ' + Math.round(st) + '/' + Math.round(sb) + ' · vv ' + (vv ? Math.round(vv.height) + ' @' + Math.round(vv.offsetTop) : '–') + ' · scroll ' + Math.round(window.scrollY) + ' · app ' + Math.round(app.top) + '–' + Math.round(app.bottom) + ' · v2.3';
+    ' · safe ' + Math.round(st) + '/' + Math.round(sb) + ' · vv ' + (vv ? Math.round(vv.height) + ' @' + Math.round(vv.offsetTop) : '–') + ' · scroll ' + Math.round(window.scrollY) + ' · app ' + Math.round(app.top) + '–' + Math.round(app.bottom) + (SHORT ? ' · short-fix' : '') + ' · v2.4';
 }
 
 render();
