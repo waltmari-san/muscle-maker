@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#090C13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Muscle Maker">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Mariboy's Muscle Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#090C13;--sheet:#0F1420;--surface:#141A27;--line:#1E2636;--line2:#2A3347;
+  --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;
+  --p:#34D3B0;--c:#F2A541;--f:#B79CFF;
+  --cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+button,input,select{font-family:inherit;color:inherit}
+button{cursor:pointer}
+input{font-size:16px}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(var(--st) + 14px) 20px 120px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.title{margin:0;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-.01em}
+.h1{margin:0;font-size:32px;font-weight:700;letter-spacing:-.02em}
+.sec{margin:0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stack{display:flex;flex-direction:column}
+.rowc{display:flex;align-items:center}
+.between{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;background:var(--surface);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:999px;flex:none;display:inline-block}
+.track{height:4px;border-radius:999px;background:var(--surface);overflow:hidden;display:flex}
+.track>span{height:100%;display:block}
+.btn{border:0;background:none;font-size:15px;font-weight:600;color:var(--accent);min-height:44px;padding:0 10px}
+.btn-primary{border:0;width:100%;height:54px;border-radius:14px;background:var(--accent);color:var(--on-accent);font-size:17px;font-weight:600}
+.btn-soft{border:1px solid #2B4A80;width:100%;height:52px;border-radius:14px;background:#14223D;color:var(--text);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn-danger{border:1px solid var(--danger);width:100%;height:48px;border-radius:12px;background:none;color:var(--danger);font-size:15px;font-weight:500}
+.iconbtn{width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0;flex:none}
+.plus{width:44px;height:44px;border-radius:999px;border:1px solid var(--line2);background:none;color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none}
+.seg{display:grid;gap:2px;padding:3px;border-radius:12px;background:var(--surface)}
+.seg button{height:36px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:7px}
+.seg button.on{background:var(--line2);color:var(--text)}
+.search{display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;border-radius:12px;background:var(--surface);color:var(--muted)}
+.search input{flex:1;min-width:0;border:0;outline:none;background:none;color:var(--text)}
+.item{width:100%;min-height:60px;border:0;border-bottom:1px solid #1B2232;background:none;text-align:left;display:flex;align-items:center;gap:14px;padding:0}
+.item .nm{font-size:16px;font-weight:500;display:flex;align-items:center;gap:7px}
+.item .sub{font-size:12px;color:var(--muted);margin-top:3px}
+.tile{width:40px;height:40px;flex:none;border-radius:12px;background:var(--surface);color:var(--accent);display:flex;align-items:center;justify-content:center;gap:1px}
+.card{border-radius:16px;background:var(--surface);padding:14px 16px}
+.field{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:var(--surface)}
+.field span{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.field input,.field select{border:0;outline:none;background:none;padding:0;font-size:17px;font-weight:600;width:100%;min-width:0}
+.field select{appearance:none;-webkit-appearance:none}
+.chip{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line2);background:none;font-size:13px;font-weight:500}
+.chip.on{border-color:var(--accent);background:#14223D}
+.empty{padding:28px 8px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5}
+.tabbar{position:fixed;left:0;right:0;bottom:0;padding:8px 12px var(--sb);display:grid;grid-template-columns:repeat(4,1fr);background:rgba(9,12,19,.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line);z-index:10}
+.tabbar button{border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:500;height:50px;justify-content:center}
+.tabbar button.on{color:var(--text);font-weight:600}
+.fab{position:fixed;right:20px;bottom:calc(var(--sb) + 82px);width:58px;height:58px;border-radius:999px;border:0;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;z-index:11;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.layer{position:fixed;inset:0;display:flex;flex-direction:column}
+.backdrop{position:absolute;inset:0;background:rgba(2,4,9,.72)}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:calc(var(--st) + 10px);background:var(--sheet);border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden}
+.grab{width:36px;height:5px;border-radius:999px;background:var(--line2);margin:8px auto 0}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.page{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column}
+.page .scroll{padding:0 20px calc(var(--sb) + 40px)}
+.pagehead{display:flex;justify-content:space-between;align-items:center;padding:calc(var(--st) + 6px) 10px 6px}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.keypad button{height:50px;border:0;border-radius:10px;background:var(--surface);font-size:22px;font-weight:500}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(var(--sb) + 150px);height:52px;padding:0 8px 0 16px;border-radius:14px;background:#1E2636;display:flex;align-items:center;justify-content:space-between;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:14px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal button{position:relative;height:44px;border-radius:11px;border:0;font-size:14px;font-weight:600;padding:0;background:transparent}
+.cal .mk{position:absolute;top:3px;right:5px;font-size:9px;font-weight:700;color:var(--text);opacity:.8}
+.cal .off{position:absolute;left:50%;bottom:5px;width:4px;height:4px;margin-left:-2px;border-radius:999px}
+.wk{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.wk button{height:60px;border-radius:12px;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0}
+input[type=time],input[type=date]{color-scheme:dark}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="importFile" accept="application/json,.json" style="display:none">
+<script>
+'use strict';
+/* ---------- constants ---------- */
+const KEY = 'mmm.v1';
+const COLORS = { D: '#5B9BFF', M: '#8B95A8', S: '#FF9A8A' };
+const GOALS = {
+  cut: { name: 'Cut', color: '#5B9BFF', main: 'D' },
+  maintain: { name: 'Maintain', color: '#8B95A8', main: 'M' },
+  bulk: { name: 'Bulk', color: '#FF9A8A', main: 'S' }
+};
+const DTYPES = {
+  D: { name: 'Deficit', bg: '#1C3260', fg: '#9CC2FF' },
+  M: { name: 'Maintenance', bg: '#2A3142', fg: '#D5DBE6' },
+  S: { name: 'Surplus', bg: '#4A2A28', fg: '#FFB8AD' }
+};
+const ICONS = {
+  bread: ['Bread', 'M6 11a3 3 0 0 1 0-6h12a3 3 0 0 1 0 6v8H6z'],
+  bowl: ['Bowl', 'M4 11h16a8 8 0 0 1-16 0z M9 7.5c0-1.2 1-1.8 1-3 M13.5 7.5c0-1.2 1-1.8 1-3'],
+  shake: ['Shake', 'M7 5h10l-1.6 15H8.6z M7.4 9h9.2 M12 5l2-2.5'],
+  cup: ['Coffee', 'M5 8h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z M16 10h1.5a2.5 2.5 0 0 1 0 5H16 M8 4.5v1.5 M11.5 4.5v1.5'],
+  apple: ['Fruit', 'M12 8c-3-2-7.5-.5-7.5 4.5 0 4 3 8 5 8 1 0 1.5-.5 2.5-.5s1.5.5 2.5.5c2 0 5-4 5-8C19.5 7.5 15 6 12 8z M12 8c0-2 1-3.5 3-4.5'],
+  wok: ['Wok', 'M2.5 11h15a7.5 6 0 0 1-15 0z M17.5 11.5l4-1.5 M8 4l3.5 5.5 M11.5 3.5l2 5.5'],
+  pasta: ['Pasta', 'M3 16h18 M5 16a7 7 0 0 1 14 0 M8 16a4 4 0 0 1 8 0 M11 16a1 1 0 0 1 2 0 M6 19h12'],
+  pizza: ['Pizza', 'M12 21L3.5 6.5a16 16 0 0 1 17 0z M5 8.8a14 14 0 0 1 14 0 M10 11.5h.01 M14 12h.01 M12 15.5h.01'],
+  leaf: ['Salad', 'M5 19c0-8 6-14 14-14 0 8-6 14-14 14z M5 19l8-8'],
+  lentil: ['Curry', 'M3.5 9c2-2 5.5-2 7.5 0-2 2-5.5 2-7.5 0z M13 9c2-2 5.5-2 7.5 0-2 2-5.5 2-7.5 0z M8.25 15.5c2-2 5.5-2 7.5 0-2 2-5.5 2-7.5 0z']
+};
+const WD = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const WDL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/* ---------- helpers ---------- */
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const fmt = (n) => Math.round(n).toLocaleString('en-US');
+const r1 = (n) => Math.round(n * 10) / 10;
+const pad = (n) => String(n).padStart(2, '0');
+const ymd = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const parse = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (k, n) => { const d = parse(k); d.setDate(d.getDate() + n); return ymd(d); };
+const dow = (k) => (parse(k).getDay() + 6) % 7;
+const todayKey = () => ymd(new Date());
+const daysBetween = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
+const dLabel = (k) => { const d = parse(k); return WDL[dow(k)] + ', ' + d.getDate() + ' ' + MON[d.getMonth()]; };
+const dShort = (k) => { const d = parse(k); return d.getDate() + ' ' + MON[d.getMonth()]; };
+const hm = (ts) => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const keyOf = (ts) => ymd(new Date(ts));
+const kcalOf = (t) => Math.round(t.p * 4 + t.c * 4 + t.f * 9);
+const num = (v, d = 0) => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
+const icon = (k, size = 18, color = 'currentColor', sw = 1.8) => k && ICONS[k] ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[k][1]}"/></svg>` : '';
+const svg = (d, size = 20, sw = 2) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+  plus: '<path d="M12 5v14M5 12h14"/>', back: '<path d="M15 5l-7 7 7 7"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  chev: '<path d="M9 5l7 7-7 7"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', list: '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
+  bars: '<path d="M5 20V11M12 20V4M19 20v-6"/>', sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'
+};
+const LOGO = `<svg width="22" height="22" viewBox="0 0 100 100" fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="#5B9BFF" d="M28 8C26 18 17 28 17 44C17 52 18 58 19.5 64 M72 8C74 18 83 28 83 44C83 52 82 58 80.5 64 M50 38V54"/><path stroke="#34D3B0" d="M24 94C22 84 20.5 74 19.5 64C27 75 44 75 50 58C56 75 73 75 80.5 64C79.5 74 78 84 76 94"/></svg>`;
+const titleLine = () => `<p class="title">${LOGO}<span>Mariboy's <span style="color:var(--accent)">Muscle Maker</span></span></p>`;
+
+/* ---------- state ---------- */
+function defaultTargets(maint) {
+  const mk = (k, p, f) => ({ p, f, c: Math.max(0, Math.round((k - p * 4 - f * 9) / 4)) });
+  return { D: mk(maint - 500, 150, 60), M: mk(maint, 150, 72), S: mk(maint + 300, 150, 80) };
+}
+function freshState() {
+  const t = todayKey();
+  return {
+    v: 1, maintenance: 2400, foods: [], meals: [], log: [], lastExport: null,
+    periods: [{ id: uid(), goal: 'maintain', start: t, end: null, week: Array(7).fill('M'), targets: defaultTargets(2400) }]
+  };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || freshState(); } catch (e) { S = freshState(); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage full or blocked'); } }
+
+const ui = { dialog: null, tab: 'today', day: null, foodsSeg: 'foods', foodsQ: '', sheet: null, portion: null, iconPick: null, edit: null, toast: null, off: null };
+
+const food = (id) => S.foods.find((f) => f.id === id);
+const meal = (id) => S.meals.find((m) => m.id === id);
+function nut(f, g) { const k = g / 100; return { kcal: f.kcal100 * k, p: f.p100 * k, c: f.c100 * k, f: f.f100 * k }; }
+function mealNut(m) {
+  const t = { kcal: 0, p: 0, c: 0, f: 0 };
+  m.items.forEach((it) => { const fd = food(it.foodId); if (!fd) return; const n = nut(fd, it.g); t.kcal += n.kcal; t.p += n.p; t.c += n.c; t.f += n.f; });
+  return t;
+}
+const unitOf = (f) => (f && f.unit === 'ml' ? 'ml' : 'g');
+const defaultGrams = (f) => f.lastGrams || (f.portions[0] && f.portions[0].g) || 100;
+
+/* ---------- periods & targets ---------- */
+const periodsSorted = () => [...S.periods].sort((a, b) => (a.start < b.start ? -1 : 1));
+function periodFor(k) {
+  let found = null;
+  periodsSorted().forEach((p) => { if (p.start <= k && (!p.end || k <= p.end)) found = p; });
+  return found;
+}
+function plannedType(p, k) { if (!p) return 'M'; if (p.goal === 'maintain') return 'M'; return p.week[dow(k)] || GOALS[p.goal].main; }
+function targetFor(k) {
+  const p = periodFor(k); const type = plannedType(p, k);
+  const base = p ? p.targets[type] : defaultTargets(S.maintenance).M;
+  const t = { p: base.p, c: base.c, f: base.f };
+  return { period: p, type, ...t, kcal: kcalOf(t) };
+}
+function dayTotals(k) {
+  const t = { kcal: 0, p: 0, c: 0, f: 0, n: 0 };
+  S.log.forEach((e) => { if (keyOf(e.ts) === k) { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; t.n++; } });
+  return t;
+}
+function direction(kcal) { const m = S.maintenance; if (kcal < m * 0.95) return 'D'; if (kcal > m * 1.05) return 'S'; return 'M'; }
+
+/* ---------- actions ---------- */
+function tsFor(k) {
+  const now = new Date();
+  if (k === todayKey()) return now.getTime();
+  const d = parse(k); d.setHours(now.getHours(), now.getMinutes(), 0, 0); return d.getTime();
+}
+function logFood(f, g, ts) {
+  const n = nut(f, g);
+  const e = { id: uid(), ts, foodId: f.id, name: f.name, g, kcal: n.kcal, p: n.p, c: n.c, f: n.f };
+  S.log.push(e);
+  f.uses = (f.uses || 0) + 1; f.lastUsed = Date.now(); f.lastGrams = g;
+  return e;
+}
+function logMeal(m, ts) {
+  const ids = [];
+  m.items.forEach((it) => { const f = food(it.foodId); if (f) ids.push(logFood(f, it.g, ts).id); });
+  m.uses = (m.uses || 0) + 1; m.lastUsed = Date.now();
+  return ids;
+}
+function ask(text, okLabel, fn, danger = true) { ui.dialog = { text, okLabel, fn, danger }; }
+function info(text) { ui.dialog = { text, okLabel: 'OK', info: true }; }
+function renderDialog() {
+  const d = ui.dialog;
+  return `<div class="layer" style="z-index:80;align-items:center;justify-content:center;padding:24px"><div class="backdrop" data-a="dlgCancel"></div>
+    <div role="alertdialog" aria-modal="true" style="position:relative;width:100%;max-width:340px;border-radius:20px;background:var(--surface);padding:22px 20px 16px;display:flex;flex-direction:column;gap:18px">
+      <p style="margin:0;font-size:16px;line-height:1.45">${esc(d.text)}</p>
+      <div class="stack" style="gap:8px">
+        <button type="button" data-a="dlgOk" style="height:48px;border-radius:12px;font-size:16px;font-weight:600;${d.danger && !d.info ? 'border:1px solid var(--danger);background:none;color:var(--danger)' : 'border:0;background:var(--accent);color:var(--on-accent)'}">${esc(d.okLabel)}</button>
+        ${d.info ? '' : `<button type="button" data-a="dlgCancel" style="height:44px;border:0;background:none;font-size:16px;color:var(--muted)">Cancel</button>`}
+      </div></div></div>`;
+}
+let toastTimer;
+function toast(text, undoIds) {
+  ui.toast = { text, undoIds };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { ui.toast = null; render(); }, 4500);
+}
+
+/* ---------- render: shared pieces ---------- */
+function macroBars(tot, tgt) {
+  return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">${[['Protein', 'p', '--p'], ['Carbs', 'c', '--c'], ['Fat', 'f', '--f']].map(([l, k, col]) => {
+    const pct = tgt[k] ? Math.min(100, tot[k] / tgt[k] * 100) : 0;
+    return `<div class="stack" style="gap:8px"><span style="font-size:12px;font-weight:500" class="muted">${l}</span>
+      <div class="track"><span style="width:${pct}%;background:var(${col});border-radius:999px"></span></div>
+      <span class="num" style="font-size:13px">${Math.round(tot[k])}<span class="muted"> / ${Math.round(tgt[k])} g</span></span></div>`;
+  }).join('')}</div>`;
+}
+function splitBar(e, maxK, h = 5) {
+  const pk = e.p * 4, ck = e.c * 4, fk = e.f * 9, s = pk + ck + fk || 1;
+  const w = maxK ? Math.max(2, e.kcal / maxK * 100) : 0;
+  return `<div class="track" aria-hidden="true" style="height:${h}px"><div style="width:${w}%;display:flex;border-radius:999px;overflow:hidden">
+    <span style="width:${pk / s * 100}%;background:var(--p)"></span><span style="width:${ck / s * 100}%;background:var(--c)"></span><span style="width:${fk / s * 100}%;background:var(--f)"></span></div></div>`;
+}
+function periodPill(tg) {
+  const g = tg.period ? GOALS[tg.period.goal] : GOALS.maintain;
+  const label = tg.period && tg.period.goal !== 'maintain' ? DTYPES[tg.type].name + ' · ' + g.name : 'Maintain';
+  return `<span class="pill"><span class="dot" style="background:${g.color}"></span>${label}</span>`;
+}
+function tabbar() {
+  const t = [['today', 'Today', I.clock], ['foods', 'Foods', I.list], ['history', 'History', I.bars], ['settings', 'Settings', I.sliders]];
+  return `<nav class="tabbar" aria-label="Main">${t.map(([k, l, ic]) => `<button type="button" class="${ui.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}">${svg(ic, 22, 1.8)}${l}</button>`).join('')}</nav>`;
+}
+
+/* ---------- Today / day view ---------- */
+function renderDay(k, isToday) {
+  const tg = targetFor(k), tot = dayTotals(k);
+  const left = tg.kcal - tot.kcal, over = left < 0;
+  const entries = S.log.filter((e) => keyOf(e.ts) === k).sort((a, b) => a.ts - b.ts);
+  const maxK = Math.max(0, ...entries.map((e) => e.kcal));
+  const fillA = over ? tg.kcal / tot.kcal * 100 : Math.min(100, tot.kcal / (tg.kcal || 1) * 100);
+  const head = isToday
+    ? `<div class="stack" style="gap:14px">${titleLine()}<div class="between" style="align-items:flex-end"><div class="stack" style="gap:4px"><span class="muted" style="font-size:13px;font-weight:500">${dLabel(k)}</span><h1 class="h1">Today</h1></div>${periodPill(tg)}</div></div>`
+    : `<div class="stack" style="gap:10px"><div style="margin:0 -10px"><button class="btn" type="button" data-a="dayBack" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}History</button></div>
+       <div class="between" style="align-items:flex-end"><div class="stack" style="gap:4px"><span class="muted" style="font-size:13px;font-weight:500">${k > todayKey() ? 'Upcoming day' : 'Past day · editable'}</span><h1 class="h1" style="font-size:28px">${dLabel(k)}</h1></div>${periodPill(tg)}</div></div>`;
+  return `<div class="stack" style="gap:26px">${head}
+    <section aria-label="Calories" class="stack" style="gap:12px">
+      <div class="between" style="align-items:baseline"><div class="rowc" style="gap:8px;align-items:baseline"><span class="num" style="font-size:52px;font-weight:600;letter-spacing:-.03em;line-height:1">${fmt(Math.abs(left))}</span><span class="muted" style="font-size:15px">kcal ${over ? 'over' : 'left'}</span></div>
+      <span class="muted num" style="font-size:13px">${fmt(tot.kcal)} / ${fmt(tg.kcal)}</span></div>
+      <div class="track" style="height:10px"><span style="width:${fillA}%;background:var(--accent)"></span>${over ? `<span style="width:${100 - fillA}%;background:var(--bulk)"></span>` : ''}</div>
+    </section>
+    <section aria-label="Macros">${macroBars(tot, tg)}</section>
+    <section aria-label="Timeline" class="stack" style="gap:10px">
+      <h2 class="sec" style="font-size:13px">Timeline</h2>
+      ${entries.length ? `<div class="stack">${entries.map((e) => {
+        const f = food(e.foodId); const ic = f && f.fav ? f.icon : null;
+        return `<button type="button" data-a="editEntry" data-id="${e.id}" style="display:flex;gap:16px;border:0;background:none;padding:0;text-align:left;width:100%">
+          <div style="width:10px;display:flex;flex-direction:column;align-items:center;align-self:stretch"><span style="width:9px;height:9px;border-radius:999px;border:2px solid var(--accent);margin-top:4px"></span><span style="flex:1;width:1px;background:var(--line)"></span></div>
+          <div class="stack" style="flex:1;gap:6px;padding-bottom:16px;min-width:0">
+            <div class="between" style="align-items:baseline"><span class="muted num" style="font-size:12px">${hm(e.ts)} · ${fmt(e.g)} ${unitOf(f)}</span><span class="num" style="font-size:16px;font-weight:600">${fmt(e.kcal)}</span></div>
+            <div class="between" style="align-items:baseline"><span class="rowc" style="gap:8px;font-size:16px;font-weight:500;min-width:0">${icon(ic, 18, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span></span><span class="muted num" style="font-size:12px;white-space:nowrap">${tg.kcal ? Math.round(e.kcal / tg.kcal * 100) : 0}% of day</span></div>
+            ${splitBar(e, maxK)}
+          </div></button>`;
+      }).join('')}</div>` : `<div class="empty">Nothing logged ${isToday ? 'yet' : 'on this day'}.<br>Tap <b style="color:var(--accent)">+</b> to add food.</div>`}
+    </section></div>`;
+}
+
+/* ---------- Quick add sheet ---------- */
+function rowFood(f, pick) {
+  const g = defaultGrams(f); const n = nut(f, g);
+  return `<div class="rowc" style="gap:12px;border-bottom:1px solid #1B2232">
+    <button type="button" class="item" style="border:0;flex:1;min-width:0" data-a="${pick ? 'pickAdd' : 'openPortion'}" data-id="${f.id}">
+      <span class="stack" style="flex:1;min-width:0"><span class="nm">${f.fav ? icon(f.icon, 17, 'var(--accent)') : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub">${fmt(g)} ${unitOf(f)}${f.brand ? ' · ' + esc(f.brand) : ''}</span></span>
+      <span class="num" style="font-size:15px;font-weight:600">${fmt(n.kcal)}</span></button>
+    <button type="button" class="plus" aria-label="${pick ? 'Add' : 'Log'} ${esc(f.name)} ${pick ? 'to meal' : 'now'}" data-a="${pick ? 'pickAdd' : 'quickFood'}" data-id="${f.id}">${svg(I.plus, 18, 2.2)}</button></div>`;
+}
+function rowMeal(m) {
+  const n = mealNut(m); const names = m.items.map((it) => (food(it.foodId) || {}).name).filter(Boolean);
+  const ics = m.items.map((it) => { const f = food(it.foodId); return f && f.fav ? f.icon : null; }).filter(Boolean).slice(0, 3);
+  return `<div class="rowc" style="gap:12px;border-bottom:1px solid #1B2232">
+    <button type="button" class="item" style="border:0;flex:1;min-width:0" data-a="quickMeal" data-id="${m.id}">
+      <span class="stack" style="flex:1;min-width:0"><span class="nm"><span class="rowc" style="gap:2px">${ics.map((k) => icon(k, 17, 'var(--accent)')).join('')}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name)}</span></span><span class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Meal · ${esc(names.join(' + '))}</span></span>
+      <span class="num" style="font-size:15px;font-weight:600">${fmt(n.kcal)}</span></button>
+    <button type="button" class="plus" aria-label="Log meal ${esc(m.name)} now" data-a="quickMeal" data-id="${m.id}">${svg(I.plus, 18, 2.2)}</button></div>`;
+}
+function sheetList() {
+  const sh = ui.sheet; const pick = !!sh.pick;
+  if (sh.tab === 'recent') {
+    const items = [...S.foods.filter((f) => f.lastUsed).map((f) => ({ t: 'f', o: f, u: f.lastUsed })), ...(pick ? [] : S.meals.filter((m) => m.lastUsed).map((m) => ({ t: 'm', o: m, u: m.lastUsed })))]
+      .sort((a, b) => b.u - a.u).slice(0, 30);
+    if (!items.length) return `<div class="empty">No recent foods yet.<br>Use <b>Search</b> to find or create your first food.</div>`;
+    return items.map((x) => (x.t === 'f' ? rowFood(x.o, pick) : rowMeal(x.o))).join('');
+  }
+  if (sh.tab === 'favs') {
+    const ms = pick ? [] : S.meals.filter((m) => m.fav).sort((a, b) => a.name.localeCompare(b.name));
+    const fs = S.foods.filter((f) => f.fav).sort((a, b) => a.name.localeCompare(b.name));
+    if (!ms.length && !fs.length) return `<div class="empty">No favorites yet.<br>Tap the star on a food to add it here.</div>`;
+    return ms.map(rowMeal).join('') + fs.map((f) => rowFood(f, pick)).join('');
+  }
+  return '';
+}
+function searchResults() {
+  const sh = ui.sheet; const q = (sh.q || '').trim().toLowerCase(); const pick = !!sh.pick;
+  if (!q) return `<div class="empty">Type to search your foods${navigator.onLine ? ' and Open Food Facts' : ''}.</div>`;
+  const mine = S.foods.filter((f) => (f.name + ' ' + (f.brand || '')).toLowerCase().includes(q)).sort((a, b) => (b.uses || 0) - (a.uses || 0));
+  const meals = pick ? [] : S.meals.filter((m) => m.name.toLowerCase().includes(q));
+  let html = '';
+  if (mine.length || meals.length) html += `<h2 class="sec" style="margin:14px 0 2px">My foods</h2>` + meals.map(rowMeal).join('') + mine.map((f) => rowFood(f, pick)).join('');
+  html += `<h2 class="sec" style="margin:18px 0 2px">Open Food Facts</h2>`;
+  const off = ui.off;
+  if (!off || off.q !== q || off.state === 'loading') html += `<div class="empty">${q.length < 3 ? 'Type at least 3 letters.' : 'Searching…'}</div>`;
+  else if (off.state === 'error') html += `<div class="empty">Couldn't reach Open Food Facts.<br>Check your connection or create the food yourself.</div>`;
+  else if (!off.items.length) html += `<div class="empty">No results.</div>`;
+  else html += off.items.map((p, i) => `<button type="button" class="item" data-a="offPick" data-i="${i}"><span class="stack" style="flex:1;min-width:0"><span class="nm"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span></span><span class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([p.brand, p.qty].filter(Boolean).join(' · ') || 'Open Food Facts')}</span></span><span class="stack" style="align-items:flex-end"><span class="num" style="font-size:15px;font-weight:600">${fmt(p.kcal100)}</span><span class="muted" style="font-size:11px;margin-top:3px">per 100 ${p.unit}</span></span></button>`).join('');
+  html += `<div style="padding:18px 0 30px"><button type="button" class="btn-soft" data-a="createFood"><span style="width:26px;height:26px;border-radius:999px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center">${svg(I.plus, 14, 3)}</span>Not found? Create food</button></div>`;
+  return html;
+}
+function renderSheet() {
+  const sh = ui.sheet;
+  const tabs = [['recent', 'Recent'], ['favs', 'Favorites'], ['search', 'Search']];
+  return `<div class="layer" style="z-index:40"><div class="backdrop" data-a="closeSheet"></div><div class="sheet" role="dialog" aria-label="Add food">
+    <div class="grab"></div>
+    <div class="stack" style="gap:14px;padding:10px 20px 6px">
+      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1><button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button></div>
+      <div class="seg" role="tablist" style="grid-template-columns:repeat(3,1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
+      ${sh.tab === 'search' ? `<label class="search">${svg(I.search, 18)}<input id="sheetQ" type="search" placeholder="Search foods" value="${esc(sh.q || '')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
+    </div>
+    <div class="scroll" data-scroll="sheet" style="padding:0 20px calc(var(--sb) + 30px)"><div id="sheetBody">${sh.tab === 'search' ? searchResults() : sheetList()}</div></div>
+  </div></div>`;
+}
+
+/* ---------- Portion ---------- */
+function renderPortion() {
+  const pt = ui.portion; const f = food(pt.foodId); if (!f) return '';
+  const g = num(pt.grams); const n = nut(f, g); const u = unitOf(f);
+  const chips = [];
+  if (f.lastGrams) chips.push(['Last · ' + fmt(f.lastGrams) + ' ' + u, f.lastGrams]);
+  f.portions.forEach((p) => chips.push([p.label + ' · ' + fmt(p.g) + ' ' + u, p.g]));
+  if (!chips.some((c) => c[1] === 100)) chips.push(['100 ' + u, 100]);
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+  return `<div class="layer" style="z-index:50"><div class="page">
+    <div class="pagehead"><button type="button" class="iconbtn" aria-label="Back" data-a="closePortion">${svg(I.back, 22)}</button>
+      <div class="stack" style="flex:1;gap:2px;min-width:0"><h1 style="margin:0;font-size:20px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</h1><span class="muted" style="font-size:12px">${fmt(f.kcal100)} kcal per 100 ${u}</span></div>
+      <button type="button" class="iconbtn" aria-label="${f.fav ? 'Remove from favorites' : 'Add to favorites'}" data-a="toggleFavPortion" style="color:${f.fav ? 'var(--accent)' : 'var(--muted)'}"><svg width="24" height="24" viewBox="0 0 24 24" fill="${f.fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">${I.star}</svg></button></div>
+    <div class="scroll" style="padding:6px 20px calc(var(--sb) + 20px);display:flex;flex-direction:column;gap:18px">
+      <div class="stack" style="align-items:center;gap:14px">
+        <div class="rowc" style="align-items:baseline;gap:6px"><span class="num" style="font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1">${esc(pt.grams || '0')}</span><span class="muted" style="font-size:20px">${u}</span></div>
+        <div class="rowc" style="gap:8px;flex-wrap:wrap;justify-content:center">${chips.map(([l, v]) => `<button type="button" class="chip ${g === v ? 'on' : ''}" data-a="chip" data-v="${v}">${esc(l)}</button>`).join('')}</div>
+      </div>
+      <div class="card" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        ${[['kcal', fmt(n.kcal), ''], ['Protein', r1(n.p) + ' g', '--p'], ['Carbs', r1(n.c) + ' g', '--c'], ['Fat', r1(n.f) + ' g', '--f']].map(([l, v, c]) => `<div class="stack" style="gap:4px"><span class="muted rowc" style="font-size:11px;gap:6px">${c ? `<span class="dot" style="width:6px;height:6px;background:var(${c})"></span>` : ''}${l}</span><span class="num" style="font-size:18px;font-weight:600">${v}</span></div>`).join('')}
+      </div>
+      <label class="rowc" style="align-self:flex-start;gap:8px;height:36px;padding:0 12px;border-radius:999px;background:var(--surface);font-size:13px;font-weight:500">${svg(I.clock, 15)}${pt.date === todayKey() ? 'Today' : dShort(pt.date)}<input type="time" id="ptTime" value="${hm(pt.ts)}" aria-label="Time" style="border:0;background:none;outline:none;font-size:13px;font-weight:600;padding:0"></label>
+      <div class="keypad" style="margin-top:auto">${keys.map((k) => `<button type="button" data-a="key" data-k="${k}" aria-label="${k === '⌫' ? 'Delete' : k === '.' ? 'Decimal point' : k}">${k}</button>`).join('')}</div>
+      <button type="button" class="btn-primary" data-a="savePortion" ${g > 0 ? '' : 'disabled style="opacity:.4"'}>${pt.logId ? 'Save · ' + fmt(n.kcal) + ' kcal' : 'Log ' + fmt(n.kcal) + ' kcal'}</button>
+      ${pt.logId ? `<button type="button" class="btn-danger" data-a="deleteEntry">Delete entry</button>` : ''}
+    </div></div></div>`;
+}
+
+/* ---------- Icon picker ---------- */
+function renderIconPick() {
+  const ip = ui.iconPick; const cur = ip.get();
+  return `<div class="layer" style="z-index:60"><div class="backdrop" data-a="closeIcon"></div>
+    <div role="dialog" aria-label="Pick an icon" style="position:absolute;left:0;right:0;bottom:0;padding:10px 20px calc(var(--sb) + 24px);border-radius:20px 20px 0 0;background:var(--surface);display:flex;flex-direction:column;gap:18px">
+      <div class="grab" style="margin-top:0"></div>
+      <div class="stack" style="gap:4px"><h2 style="margin:0;font-size:20px;font-weight:700">${ip.title}</h2><span class="muted" style="font-size:14px">Pick an icon for ${esc(ip.name)}</span></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${Object.keys(ICONS).map((k) => `<button type="button" aria-label="${ICONS[k][0]}" data-a="pickIcon" data-k="${k}" style="height:66px;border-radius:16px;border:1.5px solid ${cur === k ? 'var(--accent)' : 'transparent'};background:${cur === k ? '#14223D' : 'var(--sheet)'};color:${cur === k ? 'var(--accent)' : 'var(--text)'};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">${icon(k, 26)}<span class="muted" style="font-size:11px">${ICONS[k][0]}</span></button>`).join('')}</div>
+      <button type="button" class="btn-primary" data-a="closeIcon">Done</button>
+    </div></div>`;
+}
+
+/* ---------- Foods tab ---------- */
+function foodsListHtml() {
+  const q = ui.foodsQ.trim().toLowerCase();
+  if (ui.foodsSeg === 'meals') {
+    const ms = S.meals.filter((m) => !q || m.name.toLowerCase().includes(q)).sort((a, b) => (b.fav - a.fav) || a.name.localeCompare(b.name));
+    if (!ms.length) return `<div class="empty">${q ? 'No meals match.' : 'No meals yet.<br>Tap + to combine foods you often eat together.'}</div>`;
+    return `<div class="stack" style="gap:10px">${ms.map((m) => {
+      const n = mealNut(m);
+      return `<button type="button" class="card" data-a="editMeal" data-id="${m.id}" style="border:0;text-align:left;display:flex;flex-direction:column;gap:12px">
+        <span class="between" style="align-items:baseline"><span style="font-size:17px;font-weight:600">${m.fav ? '★ ' : ''}${esc(m.name)}</span><span class="num" style="font-size:16px;font-weight:600">${fmt(n.kcal)} <span class="muted" style="font-size:12px;font-weight:400">kcal</span></span></span>
+        <span class="stack" style="gap:8px">${m.items.map((it) => { const f = food(it.foodId); if (!f) return ''; return `<span class="rowc" style="gap:8px;font-size:14px;color:#C9D1DE">${f.fav ? icon(f.icon, 16, 'var(--accent)') : `<span class="dot" style="background:var(--line2);margin:0 4px"></span>`}${esc(f.name)} · ${fmt(it.g)} ${unitOf(f)}</span>`; }).join('')}</span>
+        <span class="rowc muted num" style="gap:14px;font-size:12px"><span class="rowc" style="gap:6px"><span class="dot" style="width:6px;height:6px;background:var(--p)"></span>P ${Math.round(n.p)}</span><span class="rowc" style="gap:6px"><span class="dot" style="width:6px;height:6px;background:var(--c)"></span>C ${Math.round(n.c)}</span><span class="rowc" style="gap:6px"><span class="dot" style="width:6px;height:6px;background:var(--f)"></span>F ${Math.round(n.f)}</span></span>
+      </button>`;
+    }).join('')}</div>`;
+  }
+  const fs = S.foods.filter((f) => !q || (f.name + ' ' + (f.brand || '')).toLowerCase().includes(q));
+  if (!fs.length) return `<div class="empty">${q ? 'No foods match.' : 'Your food library is empty.<br>Tap + or log something from Quick add.'}</div>`;
+  const row = (f, tile) => `<button type="button" class="item" data-a="editFood" data-id="${f.id}" style="min-height:${tile ? 60 : 54}px">
+    ${tile ? `<span class="tile" style="width:38px;height:38px;border-radius:11px">${icon(f.icon, 21) || svg(I.star, 18, 1.8)}</span>` : ''}
+    <span class="stack" style="flex:1;min-width:0"><span class="nm"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub">${fmt(f.kcal100)} kcal / 100 ${unitOf(f)} · ${f.uses || 0}×${f.brand ? ' · ' + esc(f.brand) : ''}</span></span>
+    <span style="color:#4A556B">${svg(I.chev, 16)}</span></button>`;
+  const favs = fs.filter((f) => f.fav).sort((a, b) => a.name.localeCompare(b.name));
+  const rest = fs.filter((f) => !f.fav).sort((a, b) => a.name.localeCompare(b.name));
+  let html = '';
+  if (favs.length) html += `<h2 class="sec" style="margin:6px 0 2px">Favorites</h2>` + favs.map((f) => row(f, true)).join('');
+  if (rest.length) {
+    html += `<h2 class="sec" style="margin:18px 0 2px">All foods</h2>`;
+    let letter = '';
+    rest.forEach((f) => { const L = (f.name[0] || '#').toUpperCase(); if (L !== letter) { letter = L; html += `<div style="padding:10px 0 2px;font-size:13px;font-weight:700;color:var(--accent)">${esc(L)}</div>`; } html += row(f, false); });
+  }
+  return html;
+}
+function renderFoods() {
+  return `<div class="stack" style="gap:16px">${titleLine()}
+    <div class="between"><h1 class="h1">Foods</h1><button type="button" class="iconbtn" aria-label="${ui.foodsSeg === 'meals' ? 'Create meal' : 'Create food'}" data-a="${ui.foodsSeg === 'meals' ? 'newMeal' : 'newFood'}" style="border-radius:999px;background:var(--surface);color:var(--accent);margin-right:-6px">${svg(I.plus, 20, 2.2)}</button></div>
+    <label class="search">${svg(I.search, 18)}<input id="foodsQ" type="search" placeholder="Search my ${ui.foodsSeg}" value="${esc(ui.foodsQ)}" autocomplete="off"></label>
+    <div class="seg" style="grid-template-columns:1fr 1fr"><button type="button" class="${ui.foodsSeg === 'foods' ? 'on' : ''}" data-a="foodsSeg" data-k="foods">Foods · ${S.foods.length}</button><button type="button" class="${ui.foodsSeg === 'meals' ? 'on' : ''}" data-a="foodsSeg" data-k="meals">Meals · ${S.meals.length}</button></div>
+    <div id="foodsList" class="stack">${foodsListHtml()}</div></div>`;
+}
+
+/* ---------- Food editor ---------- */
+function renderFoodEdit() {
+  const d = ui.edit.draft; const isNew = !ui.edit.id; const f = ui.edit.id ? food(ui.edit.id) : null;
+  const u = d.unit === 'ml' ? 'ml' : 'g';
+  return `<div class="layer" style="z-index:${ui.edit.z || 30}"><div class="page">
+    <div class="pagehead"><button type="button" class="btn" data-a="closeEdit" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}${isNew ? 'Cancel' : 'Foods'}</button><button type="button" class="btn" data-a="saveFood" style="font-size:16px">Save</button></div>
+    <div class="scroll" data-scroll="edit"><div class="stack" style="gap:22px;padding-top:6px">
+      <div class="rowc" style="gap:16px">
+        <button type="button" aria-label="Change icon" data-a="draftIcon" style="position:relative;width:64px;height:64px;flex:none;border-radius:18px;border:0;background:var(--surface);color:var(--accent);display:flex;align-items:center;justify-content:center">${icon(d.icon, 32, 'currentColor', 1.7) || `<span class="muted" style="font-size:11px">Icon</span>`}<span style="position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;border-radius:999px;background:var(--line2);color:var(--text);display:flex;align-items:center;justify-content:center">${svg(I.pen, 12, 2.4)}</span></button>
+        <div class="stack" style="flex:1;gap:6px;min-width:0"><input data-d="name" value="${esc(d.name)}" placeholder="Food name" aria-label="Food name" style="border:0;outline:none;background:none;padding:0;font-size:24px;font-weight:700;width:100%"><input data-d="brand" value="${esc(d.brand || '')}" placeholder="Brand (optional)" aria-label="Brand" style="border:0;outline:none;background:none;padding:0;font-size:14px;color:var(--muted);width:100%"></div>
+        <button type="button" class="iconbtn" aria-label="${d.fav ? 'Remove from favorites' : 'Add to favorites'}" data-a="draftFav" style="margin-right:-10px;color:${d.fav ? 'var(--accent)' : 'var(--muted)'}"><svg width="24" height="24" viewBox="0 0 24 24" fill="${d.fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">${I.star}</svg></button>
+      </div>
+      <section class="stack" style="gap:10px"><div class="between"><h2 class="sec">Nutrition per 100 ${u}</h2>
+        <div class="seg" style="grid-template-columns:1fr 1fr;padding:2px;width:96px"><button type="button" style="height:28px" class="${u === 'g' ? 'on' : ''}" data-a="draftUnit" data-k="g">g</button><button type="button" style="height:28px" class="${u === 'ml' ? 'on' : ''}" data-a="draftUnit" data-k="ml">ml</button></div></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          ${[['kcal', 'kcal100', '--accent'], ['Protein', 'p100', '--p'], ['Carbs', 'c100', '--c'], ['Fat', 'f100', '--f']].map(([l, k, c]) => `<label class="field" style="padding:10px"><span><span class="dot" style="width:6px;height:6px;background:var(${c})"></span>${l}</span><input data-d="${k}" value="${d[k] === '' || d[k] == null ? '' : esc(d[k])}" inputmode="decimal" placeholder="${k === 'kcal100' ? 'auto' : '0'}" aria-label="${l} per 100 ${u}"></label>`).join('')}
+        </div><span class="muted" style="font-size:12px">Leave kcal empty to calculate it from the macros.</span></section>
+      <section class="stack" style="gap:4px"><h2 class="sec" style="margin-bottom:4px">Saved portions</h2>
+        ${d.portions.map((p, i) => `<div class="rowc" style="gap:10px;min-height:52px;border-bottom:1px solid #1B2232"><input data-p="${i}" data-pk="label" value="${esc(p.label)}" placeholder="e.g. 1 bowl" aria-label="Portion name" style="flex:1;min-width:0;border:0;outline:none;background:none;padding:0;font-size:15px"><input data-p="${i}" data-pk="g" value="${p.g || ''}" inputmode="decimal" placeholder="0" aria-label="Portion amount" style="width:60px;border:0;outline:none;background:var(--surface);border-radius:8px;padding:6px 8px;text-align:right;font-size:15px"><span class="muted" style="font-size:13px">${u}</span><button type="button" class="iconbtn" aria-label="Remove portion" data-a="rmPortion" data-i="${i}" style="color:var(--muted);width:36px">${svg(I.x, 16)}</button></div>`).join('')}
+        <button type="button" class="btn" data-a="addPortion" style="text-align:left;padding:0">+ Add portion</button></section>
+      ${f ? `<section class="stack" style="gap:10px"><h2 class="sec">Usage</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${[[(f.uses || 0) + '×', 'Logged'], [f.lastUsed ? (keyOf(f.lastUsed) === todayKey() ? 'Today' : dShort(keyOf(f.lastUsed))) : '—', 'Last logged'], [f.lastGrams ? fmt(f.lastGrams) + ' ' + u : '—', 'Usual amount']].map(([v, l]) => `<div class="card" style="padding:12px"><div class="num" style="font-size:18px;font-weight:600">${v}</div><div class="muted" style="font-size:11px;margin-top:4px">${l}</div></div>`).join('')}</div></section>
+      <button type="button" class="btn-danger" data-a="deleteFood">Delete food</button>` : ''}
+    </div></div></div></div>`;
+}
+
+/* ---------- Meal editor ---------- */
+function renderMealEdit() {
+  const d = ui.edit.draft; const isNew = !ui.edit.id;
+  const n = mealNut(d);
+  return `<div class="layer" style="z-index:30"><div class="page">
+    <div class="pagehead"><button type="button" class="btn" data-a="closeEdit" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}${isNew ? 'Cancel' : 'Meals'}</button><button type="button" class="btn" data-a="saveMeal" style="font-size:16px">Save</button></div>
+    <div class="scroll" data-scroll="edit"><div class="stack" style="gap:22px;padding-top:6px">
+      <div class="between"><input data-d="name" value="${esc(d.name)}" placeholder="Meal name" aria-label="Meal name" style="flex:1;min-width:0;border:0;outline:none;background:none;padding:0;font-size:28px;font-weight:700">
+        <button type="button" class="iconbtn" aria-label="${d.fav ? 'Remove from favorites' : 'Add to favorites'}" data-a="draftFav" style="margin-right:-10px;color:${d.fav ? 'var(--accent)' : 'var(--muted)'}"><svg width="24" height="24" viewBox="0 0 24 24" fill="${d.fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">${I.star}</svg></button></div>
+      <div class="card" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        ${[['kcal', fmt(n.kcal), ''], ['Protein', Math.round(n.p) + ' g', '--p'], ['Carbs', Math.round(n.c) + ' g', '--c'], ['Fat', Math.round(n.f) + ' g', '--f']].map(([l, v, c]) => `<div class="stack" style="gap:4px"><span class="muted rowc" style="font-size:11px;gap:6px">${c ? `<span class="dot" style="width:6px;height:6px;background:var(${c})"></span>` : ''}${l}</span><span class="num" style="font-size:18px;font-weight:600">${v}</span></div>`).join('')}
+      </div>
+      <section class="stack" style="gap:4px"><h2 class="sec" style="margin-bottom:4px">Foods in this meal</h2>
+        ${d.items.map((it, i) => { const f = food(it.foodId); if (!f) return ''; return `<div class="rowc" style="gap:12px;min-height:60px;border-bottom:1px solid #1B2232"><span class="tile" style="width:38px;height:38px">${f.fav ? icon(f.icon, 21) : ''}</span><span style="flex:1;min-width:0;font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><input data-mi="${i}" value="${it.g}" inputmode="decimal" aria-label="Amount of ${esc(f.name)}" style="width:64px;border:0;outline:none;background:var(--surface);border-radius:10px;padding:8px;text-align:right;font-size:15px"><span class="muted" style="font-size:13px">${unitOf(f)}</span><button type="button" class="iconbtn" aria-label="Remove ${esc(f.name)}" data-a="rmMealItem" data-i="${i}" style="color:var(--muted);width:32px">${svg(I.x, 16)}</button></div>`; }).join('')}
+        <button type="button" class="btn" data-a="mealAddFood" style="text-align:left;padding:0">+ Add food</button></section>
+      ${d.items.length ? `<button type="button" class="btn-primary" data-a="logMealNow">Log meal now</button>` : ''}
+      ${isNew ? '' : `<button type="button" class="btn-danger" data-a="deleteMeal">Delete meal</button>`}
+    </div></div></div></div>`;
+}
+
+/* ---------- History ---------- */
+function renderHistory() {
+  if (ui.day) return renderDay(ui.day, false);
+  const t = todayKey(); const P = periodFor(t);
+  const start = P ? P.start : addDays(t, -27);
+  const goal = P ? GOALS[P.goal] : GOALS.maintain;
+  const types = P ? (P.goal === 'cut' ? ['D', 'M'] : P.goal === 'bulk' ? ['S', 'M'] : ['M']) : ['M'];
+  // stats over past days with entries
+  let onT = 0, logged = 0; const agg = {}; const mac = { p: 0, c: 0, f: 0, tp: 0, tc: 0, tf: 0, n: 0 };
+  for (let k = start; k < t; k = addDays(k, 1)) {
+    const tot = dayTotals(k); if (!tot.n) continue;
+    const tg = targetFor(k); logged++;
+    if (Math.abs(tot.kcal - tg.kcal) <= tg.kcal * 0.05) onT++;
+    (agg[tg.type] = agg[tg.type] || { s: 0, n: 0, t: tg.kcal }); agg[tg.type].s += tot.kcal; agg[tg.type].n++;
+    mac.p += tot.p; mac.c += tot.c; mac.f += tot.f; mac.tp += tg.p; mac.tc += tg.c; mac.tf += tg.f; mac.n++;
+  }
+  const weekNo = Math.floor(daysBetween(start, t) / 7) + 1;
+  const totalWeeks = P && P.end ? Math.ceil((daysBetween(P.start, P.end) + 1) / 7) : null;
+  const avgCells = types.map((ty) => {
+    const a = agg[ty]; const tgt = P ? kcalOf(P.targets[ty]) : kcalOf(defaultTargets(S.maintenance).M);
+    return `<div class="stack" style="flex:1;gap:3px"><span class="muted" style="font-size:11px">Avg ${DTYPES[ty].name.toLowerCase()} day</span><span class="num" style="font-size:17px;font-weight:600">${a ? fmt(a.s / a.n) : '—'} <span class="muted" style="font-size:12px;font-weight:400">/ ${fmt(tgt)} kcal</span></span></div>`;
+  }).join('');
+  const macAvg = [['protein', 'p', 'tp', '--p'], ['carbs', 'c', 'tc', '--c'], ['fat', 'f', 'tf', '--f']].map(([l, k, tk, col]) => {
+    const v = mac.n ? mac[k] / mac.n : 0, g = mac.n ? mac[tk] / mac.n : 0;
+    return `<div class="stack" style="gap:6px"><span class="muted" style="font-size:11px">Avg ${l}</span><div class="track" style="background:#232B3D"><span style="width:${g ? Math.min(100, v / g * 100) : 0}%;background:var(${col});border-radius:999px"></span></div><span class="num" style="font-size:12px">${mac.n ? Math.round(v) : '—'}<span class="muted"> / ${mac.n ? Math.round(g) : '—'} g</span></span></div>`;
+  }).join('');
+  // calendar
+  const calStart = addDays(start, -dow(start));
+  const calEnd = addDays(t, 6 - dow(t));
+  let weeks = '';
+  for (let w = calStart; w <= calEnd; w = addDays(w, 7)) {
+    const mid = addDays(w, 3); const wp = periodFor(mid); const cur = wp && P && wp.id === P.id;
+    const band = wp ? GOALS[wp.goal].color : '#2A3347';
+    let cells = '';
+    for (let i = 0; i < 7; i++) {
+      const k = addDays(w, i); const d = parse(k).getDate();
+      const dp = periodFor(k); const planned = plannedType(dp, k); const inCur = P ? (dp && dp.id === P.id) : true;
+      const mark = dp && dp.goal !== 'maintain' && planned === 'M' ? 'M' : '';
+      const tot = dayTotals(k);
+      let bg = 'transparent', fg = 'var(--muted)', border = '0', off = false, label;
+      if (k === t) { border = '1.5px solid var(--accent)'; fg = 'var(--text)'; label = 'today'; if (tot.n) { const dir = direction(tot.kcal); bg = DTYPES[dir].bg; fg = DTYPES[dir].fg; } }
+      else if (k > t) { fg = '#3A4458'; label = 'upcoming'; }
+      else if (tot.n) {
+        const dir = direction(tot.kcal); const tg = targetFor(k);
+        bg = DTYPES[dir].bg; fg = DTYPES[dir].fg; off = Math.abs(tot.kcal - tg.kcal) > tg.kcal * 0.05;
+        label = 'ate ' + fmt(tot.kcal) + ' kcal, ' + DTYPES[dir].name.toLowerCase() + (off ? ', off target' : ', on target');
+      } else label = 'nothing logged';
+      cells += `<button type="button" data-a="openDay" data-k="${k}" aria-label="${dShort(k)}, ${label}${mark ? ', planned maintenance day' : ''}" style="background:${bg};color:${fg};border:${border};opacity:${inCur ? 1 : 0.45}">${d}${mark && k <= t ? `<span class="mk">M</span>` : ''}${off ? `<span class="off" style="background:${fg}"></span>` : ''}</button>`;
+    }
+    weeks += `<div class="stack" style="gap:3px"><span style="height:3px;border-radius:999px;background:${band};opacity:${cur || !P ? 1 : 0.45}"></span><div class="cal num">${cells}</div></div>`;
+  }
+  const hasMarker = P && P.goal !== 'maintain';
+  return `<div class="stack" style="gap:18px"><div class="stack" style="gap:14px">${titleLine()}<h1 class="h1">History</h1></div>
+    <section class="card stack" aria-label="Current period" style="gap:14px;border-radius:18px">
+      <div class="between" style="align-items:flex-start"><div class="stack" style="gap:3px"><span class="rowc" style="gap:8px;font-size:17px;font-weight:600"><span class="dot" style="width:10px;height:10px;background:${goal.color}"></span>${P ? goal.name : 'No active period'}</span><span class="muted" style="font-size:12px">${P ? 'Since ' + dShort(start) + ' · week ' + weekNo + (totalWeeks ? ' of ' + totalWeeks : '') : 'Last 4 weeks · plan a period in Settings'}</span></div>
+        <div class="stack" style="align-items:flex-end;gap:3px"><span class="num" style="font-size:17px;font-weight:600">${onT}<span class="muted" style="font-size:12px;font-weight:400"> / ${logged}</span></span><span class="muted" style="font-size:12px">days on target</span></div></div>
+      <div class="rowc" style="gap:10px;align-items:flex-start">${avgCells}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${macAvg}</div>
+    </section>
+    <section class="stack" aria-label="Calendar" style="gap:6px">
+      <div class="cal" style="font-size:11px;text-align:center;color:var(--muted)">${WD.map((w) => `<span>${w}</span>`).join('')}</div>
+      ${weeks}
+      <div class="rowc muted" style="flex-wrap:wrap;gap:6px 14px;padding-top:6px;font-size:11px">
+        ${['D', 'M', 'S'].map((k) => `<span class="rowc" style="gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:${COLORS[k]}"></span>${DTYPES[k].name}</span>`).join('')}
+        <span class="rowc" style="gap:6px"><span style="width:4px;height:4px;border-radius:999px;background:#C9D1DE"></span>Off target</span>
+        ${hasMarker ? `<span class="rowc" style="gap:6px"><b style="font-size:9px;color:#C9D1DE">M</b>Maintenance day</span>` : ''}
+      </div>
+    </section></div>`;
+}
+
+/* ---------- Settings ---------- */
+function renderSettings() {
+  const t = todayKey(); const ps = periodsSorted();
+  const lo = ps.length ? (ps[0].start < t ? ps[0].start : t) : t;
+  let hi = t; ps.forEach((p) => { const e = p.end || addDays(p.start, 42); if (e > hi) hi = e; });
+  if (daysBetween(lo, hi) < 28) hi = addDays(lo, 28);
+  const span = daysBetween(lo, hi) + 1;
+  let segs = '', cursor = lo;
+  ps.forEach((p) => {
+    if (p.start > cursor) segs += `<span style="flex:${daysBetween(cursor, p.start)}"></span>`;
+    const e = p.end || hi; const s = p.start < cursor ? cursor : p.start;
+    if (e >= s) segs += `<span style="flex:${daysBetween(s, e) + 1};border-radius:999px;background:${GOALS[p.goal].color};opacity:${(p.end && p.end < t) ? 0.45 : 1}"></span>`;
+    if (addDays(e, 1) > cursor) cursor = addDays(e, 1);
+  });
+  const todayPct = daysBetween(lo, t) / span * 100;
+  const cur = periodFor(t);
+  const upcoming = ps.filter((p) => p.start > t);
+  const rows = [...ps].reverse().sort((a, b) => {
+    const rank = (p) => (p === cur ? 0 : p.start > t ? 1 : 2);
+    return rank(a) - rank(b) || (rank(a) === 1 ? (a.start < b.start ? -1 : 1) : (a.start < b.start ? 1 : -1));
+  }).map((p) => {
+    const g = GOALS[p.goal]; const ended = p.end && p.end < t;
+    let tag = '', tagColor = 'var(--muted)';
+    if (p === cur) { const wk = Math.floor(daysBetween(p.start, t) / 7) + 1; const tw = p.end ? Math.ceil((daysBetween(p.start, p.end) + 1) / 7) : null; tag = 'NOW · week ' + wk + (tw ? ' of ' + tw : ''); tagColor = g.color; }
+    else if (p.start > t) tag = p === upcoming[0] ? 'NEXT' : 'PLANNED';
+    const counts = p.goal === 'maintain' ? 'every day maintenance' : (() => { const m = p.week.filter((x) => x === 'M').length; return (7 - m) + ' ' + DTYPES[g.main].name.toLowerCase() + ' + ' + m + ' maintenance days'; })();
+    return `<button type="button" data-a="editPeriod" data-id="${p.id}" style="min-height:60px;padding:0 16px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;display:flex;align-items:center;gap:12px;width:100%;opacity:${ended ? 0.55 : 1}">
+      <span class="dot" style="width:10px;height:10px;background:${g.color}"></span>
+      <span class="stack" style="flex:1;gap:3px;min-width:0"><span style="font-size:16px;font-weight:600">${g.name} <span style="font-size:12px;color:${tagColor}">${tag}</span></span><span class="muted" style="font-size:12px">${dShort(p.start)} – ${p.end ? dShort(p.end) : 'open-ended'}${ended ? ' · ended' : ''} · ${counts}</span></span>
+      <span style="color:#4A556B">${svg(I.chev, 16)}</span></button>`;
+  }).join('');
+  return `<div class="stack" style="gap:22px"><div class="stack" style="gap:14px">${titleLine()}<h1 class="h1">Settings</h1></div>
+    <section class="stack" aria-label="Periods" style="gap:12px">
+      <div class="between"><h2 class="sec" style="font-size:13px">Periods</h2><button type="button" class="btn" data-a="newPeriod" style="padding:0">+ Plan period</button></div>
+      <div class="stack" style="gap:8px"><div aria-hidden="true" style="position:relative;display:flex;gap:3px;height:10px">${segs}<span style="position:absolute;left:${todayPct}%;top:-4px;width:2px;height:18px;border-radius:999px;background:var(--text)"></span></div>
+        <div class="between muted" style="font-size:11px"><span>${dShort(lo)}</span><span>today</span><span>${dShort(hi)}</span></div></div>
+      <div class="stack" style="border-radius:16px;background:var(--surface);overflow:hidden">${rows || `<div class="empty">No periods yet.</div>`}</div>
+    </section>
+    <section class="stack" aria-label="Body" style="gap:12px"><h2 class="sec" style="font-size:13px">Body</h2>
+      <label class="between" style="min-height:56px;padding:0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px">Maintenance</span><span class="rowc" style="gap:6px"><input id="maint" value="${S.maintenance}" inputmode="numeric" aria-label="Maintenance calories" style="width:80px;border:0;outline:none;background:none;font-size:16px;font-weight:600;text-align:right;padding:0"><span class="muted" style="font-size:13px">kcal</span></span></label>
+      <span class="muted" style="font-size:12px;padding:0 4px">Used for the History colors (deficit / maintenance / surplus) and as the base for new periods.</span>
+    </section>
+    <section class="stack" aria-label="Data" style="gap:12px"><h2 class="sec" style="font-size:13px">Data</h2>
+      <div class="stack" style="border-radius:16px;background:var(--surface);overflow:hidden">
+        <button type="button" data-a="export" style="min-height:52px;padding:0 16px;border:0;border-bottom:1px solid var(--line);background:none;font-size:16px;text-align:left;display:flex;justify-content:space-between;align-items:center">Export backup <span class="muted" style="font-size:12px">${S.lastExport ? 'last: ' + dShort(keyOf(S.lastExport)) : 'never'}</span></button>
+        <button type="button" data-a="import" style="min-height:52px;padding:0 16px;border:0;background:none;font-size:16px;text-align:left">Import backup</button>
+      </div>
+      <span class="muted" style="font-size:12px;padding:0 4px">Your data lives only on this phone. Export a backup now and then.</span>
+    </section>
+    <p class="muted" style="text-align:center;font-size:12px;margin:8px 0 0">Mariboy's Muscle Maker · v1</p></div>`;
+}
+
+/* ---------- Period editor ---------- */
+function renderPeriodEdit() {
+  const d = ui.edit.draft; const isNew = !ui.edit.id; const g = GOALS[d.goal];
+  const types = d.goal === 'cut' ? ['D', 'M'] : d.goal === 'bulk' ? ['S', 'M'] : ['M'];
+  const weeks = d.end && d.start && d.end >= d.start ? Math.ceil((daysBetween(d.start, d.end) + 1) / 7) : null;
+  const mCount = d.week.filter((x) => x === 'M').length;
+  return `<div class="layer" style="z-index:30"><div class="page">
+    <div class="pagehead"><button type="button" class="btn" data-a="closeEdit" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}${isNew ? 'Cancel' : 'Settings'}</button><button type="button" class="btn" data-a="savePeriod" style="font-size:16px">Save</button></div>
+    <div class="scroll" data-scroll="edit"><div class="stack" style="gap:20px;padding-top:6px">
+      <h1 style="margin:0;font-size:28px;font-weight:700">${isNew ? 'Plan period' : 'Edit period'}</h1>
+      <div class="seg" role="tablist" aria-label="Period type" style="grid-template-columns:repeat(3,1fr)">${['cut', 'maintain', 'bulk'].map((k) => `<button type="button" role="tab" style="height:38px;font-size:14px" class="${d.goal === k ? 'on' : ''}" data-a="draftGoal" data-k="${k}"><span class="dot" style="background:${GOALS[k].color}"></span>${GOALS[k].name}</button>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label class="field"><span>Start</span><input type="date" data-d="start" value="${d.start || ''}" aria-label="Start date" style="font-size:16px"></label>
+        <label class="field"><span>End · ${weeks ? weeks + ' weeks' : 'optional'}</span><input type="date" data-d="end" value="${d.end || ''}" aria-label="End date, leave empty for open-ended" style="font-size:16px"></label>
+      </div>
+      ${d.end ? `<button type="button" class="btn" data-a="clearEnd" style="align-self:flex-start;padding:0;margin-top:-12px;font-weight:500;font-size:13px">Make open-ended</button>` : `<span class="muted" style="font-size:12px;margin-top:-12px">Open-ended — runs until the next period starts.</span>`}
+      ${d.goal !== 'maintain' ? `<section class="stack" aria-label="Weekly pattern" style="gap:10px"><h2 class="sec">Weekly pattern</h2>
+        <div class="wk">${d.week.map((x, i) => `<button type="button" data-a="toggleDay" data-i="${i}" aria-label="${WDL[i]}: ${DTYPES[x].name}" style="background:${DTYPES[x].bg}"><span class="muted" style="font-size:11px">${WD[i]}</span><span style="font-size:15px;font-weight:700;color:${DTYPES[x].fg}">${x}</span></button>`).join('')}</div>
+        <span class="muted" style="font-size:12px">Tap a day to switch between ${DTYPES[g.main].name} and Maintenance · ${7 - mCount} ${g.main} + ${mCount} M per week</span></section>` : ''}
+      <section class="stack" aria-label="Targets" style="gap:10px"><h2 class="sec">Targets for this period</h2>
+        ${types.map((ty) => { const tt = d.targets[ty]; const k = kcalOf(tt); const delta = k - S.maintenance; return `<div class="card stack" style="gap:12px">
+          <div class="between" style="align-items:baseline"><span class="rowc" style="gap:8px;font-size:16px;font-weight:600"><span style="font-size:12px;font-weight:700;width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:${DTYPES[ty].bg};color:${DTYPES[ty].fg}">${ty}</span>${DTYPES[ty].name} day</span>
+          <span class="num" style="font-size:16px;font-weight:600"><span id="k-${ty}">${fmt(k)}</span> <span class="muted" style="font-size:12px;font-weight:400">kcal · <span id="dl-${ty}">${delta >= 0 ? '+' : '−'}${fmt(Math.abs(delta))}</span></span></span></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${[['Protein', 'p', '--p'], ['Carbs', 'c', '--c'], ['Fat', 'f', '--f']].map(([l, m, c]) => `<label class="field" style="background:var(--sheet);padding:8px 10px"><span><span class="dot" style="width:6px;height:6px;background:var(${c})"></span>${l}</span><span class="rowc" style="gap:3px;align-items:baseline"><input data-t="${ty}" data-m="${m}" value="${tt[m]}" inputmode="numeric" aria-label="${DTYPES[ty].name} day ${l} grams"><span class="muted" style="font-size:12px">g</span></span></label>`).join('')}</div></div>`; }).join('')}
+        <span class="muted" style="font-size:12px">kcal = protein × 4 + carbs × 4 + fat × 9 · difference shown against your maintenance (${fmt(S.maintenance)} kcal)</span>
+      </section>
+      ${isNew ? '' : `<button type="button" class="btn-danger" data-a="deletePeriod">Delete period</button>`}
+    </div></div></div></div>`;
+}
+
+/* ---------- main render ---------- */
+function render() {
+  const scrolls = {};
+  document.querySelectorAll('[data-scroll]').forEach((el) => { scrolls[el.dataset.scroll] = el.scrollTop; });
+  let main = '';
+  if (ui.tab === 'today') main = renderDay(todayKey(), true);
+  else if (ui.tab === 'foods') main = renderFoods();
+  else if (ui.tab === 'history') main = renderHistory();
+  else main = renderSettings();
+  const showFab = ui.tab === 'today' || (ui.tab === 'history' && ui.day);
+  let html = `<div class="main" data-scroll="main-${ui.tab}${ui.day ? '-' + ui.day : ''}">${main}</div>${tabbar()}`;
+  if (showFab) html += `<button type="button" class="fab" aria-label="Log food" data-a="openSheet">${svg(I.plus, 26, 2.4)}</button>`;
+  if (ui.edit) html += ui.edit.type === 'food' ? renderFoodEdit() : ui.edit.type === 'meal' ? renderMealEdit() : renderPeriodEdit();
+  if (ui.sheet) html += renderSheet();
+  if (ui.portion) html += renderPortion();
+  if (ui.iconPick) html += renderIconPick();
+  if (ui.dialog) html += renderDialog();
+  if (ui.toast) html += `<div class="toast" role="status"><span>${esc(ui.toast.text)}</span>${ui.toast.undoIds ? `<button type="button" class="btn" data-a="undo" style="font-size:14px">Undo</button>` : ''}</div>`;
+  document.getElementById('app').innerHTML = html;
+  document.querySelectorAll('[data-scroll]').forEach((el) => { if (scrolls[el.dataset.scroll]) el.scrollTop = scrolls[el.dataset.scroll]; });
+}
+
+/* ---------- drafts ---------- */
+function syncDraft() {
+  if (!ui.edit) return;
+  const d = ui.edit.draft;
+  document.querySelectorAll('[data-d]').forEach((el) => { d[el.dataset.d] = el.value; });
+  document.querySelectorAll('[data-p]').forEach((el) => { const p = d.portions[+el.dataset.p]; if (p) p[el.dataset.pk] = el.dataset.pk === 'g' ? num(el.value) : el.value; });
+  document.querySelectorAll('[data-mi]').forEach((el) => { const it = d.items[+el.dataset.mi]; if (it) it.g = num(el.value, it.g); });
+  document.querySelectorAll('[data-t]').forEach((el) => { d.targets[el.dataset.t][el.dataset.m] = Math.max(0, Math.round(num(el.value))); });
+}
+function openFoodEdit(f, opts = {}) {
+  ui.edit = { type: 'food', id: f ? f.id : null, z: opts.z, from: opts.from,
+    draft: f ? JSON.parse(JSON.stringify({ name: f.name, brand: f.brand || '', unit: f.unit || 'g', kcal100: f.kcal100, p100: f.p100, c100: f.c100, f100: f.f100, portions: f.portions, fav: !!f.fav, icon: f.icon || null }))
+      : { name: opts.name || '', brand: '', unit: 'g', kcal100: '', p100: '', c100: '', f100: '', portions: [], fav: false, icon: null } };
+}
+function openPortion(f, opts = {}) {
+  const date = opts.date || (ui.sheet ? ui.sheet.date : todayKey());
+  ui.portion = { foodId: f.id, grams: String(opts.grams != null ? opts.grams : defaultGrams(f)), fresh: true, date, ts: opts.ts || tsFor(date), logId: opts.logId || null };
+}
+
+/* ---------- Open Food Facts ---------- */
+let offTimer, offSeq = 0;
+function offSearch(q) {
+  clearTimeout(offTimer);
+  if (q.length < 3) { ui.off = null; return; }
+  ui.off = { q, state: 'loading', items: [] };
+  offTimer = setTimeout(async () => {
+    const seq = ++offSeq;
+    try {
+      const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=25&lc=de&cc=de&fields=code,product_name,product_name_de,product_name_en,brands,quantity,nutriments&search_terms=' + encodeURIComponent(q);
+      const res = await fetch(url); if (!res.ok) throw new Error('http');
+      const data = await res.json(); if (seq !== offSeq) return;
+      const items = (data.products || []).map((p) => {
+        const n = p.nutriments || {};
+        const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : null);
+        const qty = p.quantity || '';
+        return { code: p.code, name: (p.product_name_de || p.product_name || p.product_name_en || '').trim(), brand: (p.brands || '').split(',')[0].trim(), qty,
+          unit: /\d\s*(ml|l|cl)\b/i.test(qty) ? 'ml' : 'g', kcal100: kcal, p100: n.proteins_100g, c100: n.carbohydrates_100g, f100: n.fat_100g };
+      }).filter((p) => p.name && p.kcal100 != null && isFinite(p.kcal100));
+      ui.off = { q, state: 'done', items };
+    } catch (e) { if (seq === offSeq) ui.off = { q, state: 'error', items: [] }; }
+    if (ui.sheet && ui.sheet.tab === 'search') { const b = document.getElementById('sheetBody'); if (b) b.innerHTML = searchResults(); }
+  }, 450);
+}
+
+/* ---------- events ---------- */
+const A = {
+  tab(el) { ui.tab = el.dataset.k; ui.day = null; },
+  dayBack() { ui.day = null; },
+  openDay(el) { const k = el.dataset.k; if (k === todayKey()) { ui.tab = 'today'; ui.day = null; } else ui.day = k; },
+  openSheet() { ui.sheet = { tab: 'recent', q: '', date: ui.tab === 'history' && ui.day ? ui.day : todayKey() }; },
+  closeSheet() { ui.sheet = null; },
+  sheetTab(el) { ui.sheet.tab = el.dataset.k; if (el.dataset.k === 'search') setTimeout(() => { const i = document.getElementById('sheetQ'); if (i) i.focus(); }, 30); },
+  openPortion(el) { openPortion(food(el.dataset.id)); },
+  quickFood(el) {
+    const f = food(el.dataset.id); const g = defaultGrams(f); const e = logFood(f, g, tsFor(ui.sheet.date)); save();
+    toast(f.name + ' logged · ' + fmt(e.kcal) + ' kcal', [e.id]);
+  },
+  quickMeal(el) {
+    const m = meal(el.dataset.id); if (!m.items.length) return;
+    const ids = logMeal(m, tsFor(ui.sheet ? ui.sheet.date : todayKey())); save();
+    toast(m.name + ' logged · ' + fmt(mealNut(m).kcal) + ' kcal', ids);
+  },
+  pickAdd(el) {
+    const f = food(el.dataset.id); syncDraft(); ui.edit.draft.items.push({ foodId: f.id, g: defaultGrams(f) }); ui.sheet = null;
+  },
+  offPick(el) {
+    const p = ui.off.items[+el.dataset.i];
+    let f = S.foods.find((x) => x.code && x.code === p.code);
+    if (!f) {
+      f = { id: uid(), code: p.code, source: 'off', name: p.name, brand: p.brand, unit: p.unit, kcal100: Math.round(p.kcal100), p100: r1(p.p100 || 0), c100: r1(p.c100 || 0), f100: r1(p.f100 || 0), portions: [], fav: false, icon: null, uses: 0 };
+      S.foods.push(f); save();
+    }
+    if (ui.sheet.pick) { syncDraft(); ui.edit.draft.items.push({ foodId: f.id, g: 100 }); ui.sheet = null; } else openPortion(f);
+  },
+  createFood() { const q = ui.sheet.q || ''; const pick = ui.sheet.pick; const date = ui.sheet.date; ui.sheet = null; if (pick) { ui.pendingPick = ui.edit; } openFoodEdit(null, { name: q, from: pick ? 'pick' : 'sheet', date, z: 45 }); ui.edit.date = date; },
+  closePortion() { ui.portion = null; },
+  chip(el) { ui.portion.grams = el.dataset.v; ui.portion.fresh = true; },
+  key(el) {
+    const k = el.dataset.k; const pt = ui.portion; let g = pt.fresh ? '' : pt.grams;
+    if (k === '⌫') g = (pt.fresh ? pt.grams : g).slice(0, -1);
+    else if (k === '.') { if (!g.includes('.')) g = (g || '0') + '.'; }
+    else if (g.replace('.', '').length < 5) g = g === '0' ? k : g + k;
+    pt.grams = g; pt.fresh = false;
+  },
+  savePortion() {
+    const pt = ui.portion; const f = food(pt.foodId); const g = num(pt.grams); if (!(g > 0)) return;
+    if (pt.logId) {
+      const e = S.log.find((x) => x.id === pt.logId); const n = nut(f, g);
+      Object.assign(e, { g, ts: pt.ts, kcal: n.kcal, p: n.p, c: n.c, f: n.f, name: f.name }); f.lastGrams = g; save(); ui.portion = null; toast('Entry updated');
+    } else {
+      const e = logFood(f, g, pt.ts); save(); ui.portion = null; ui.sheet = null; toast(f.name + ' logged · ' + fmt(e.kcal) + ' kcal', [e.id]);
+    }
+  },
+  deleteEntry() { const id = ui.portion.logId; const e = S.log.find((x) => x.id === id); S.log = S.log.filter((x) => x.id !== id); save(); ui.portion = null; ui.deleted = e; toast('Entry deleted', ['__restore']); },
+  editEntry(el) {
+    const e = S.log.find((x) => x.id === el.dataset.id); const f = food(e.foodId);
+    if (!f) { ask('This food was deleted from your library. Delete this entry?', 'Delete entry', () => { S.log = S.log.filter((x) => x.id !== e.id); save(); }); return; }
+    openPortion(f, { grams: e.g, ts: e.ts, date: keyOf(e.ts), logId: e.id });
+  },
+  toggleFavPortion() { const f = food(ui.portion.foodId); f.fav = !f.fav; save(); if (f.fav && !f.icon) openIconPick('food', f); },
+  undo() {
+    const ids = ui.toast.undoIds;
+    if (ids[0] === '__restore') { if (ui.deleted) S.log.push(ui.deleted); ui.deleted = null; }
+    else S.log = S.log.filter((x) => !ids.includes(x.id));
+    save(); ui.toast = null; clearTimeout(toastTimer);
+  },
+  dlgOk() { const fn = ui.dialog.fn; ui.dialog = null; if (fn) fn(); },
+  dlgCancel() { ui.dialog = null; },
+  pickIcon(el) { ui.iconPick.set(el.dataset.k); },
+  closeIcon() { ui.iconPick = null; },
+  // foods tab
+  foodsSeg(el) { ui.foodsSeg = el.dataset.k; ui.foodsQ = ''; },
+  newFood() { openFoodEdit(null); },
+  editFood(el) { openFoodEdit(food(el.dataset.id)); },
+  closeEdit() { if (ui.edit && ui.edit.from === 'pick' && ui.pendingPick) { ui.edit = ui.pendingPick; ui.pendingPick = null; } else ui.edit = null; },
+  draftIcon() { syncDraft(); const d = ui.edit.draft; ui.iconPick = { title: 'Food icon', name: d.name || 'this food', get: () => d.icon, set: (k) => { d.icon = d.icon === k ? null : k; } }; },
+  draftFav() { syncDraft(); const d = ui.edit.draft; d.fav = !d.fav; if (d.fav && ui.edit.type === 'food' && !d.icon) A.draftIcon(); },
+  draftUnit(el) { syncDraft(); ui.edit.draft.unit = el.dataset.k; },
+  addPortion() { syncDraft(); ui.edit.draft.portions.push({ label: '', g: '' }); },
+  rmPortion(el) { syncDraft(); ui.edit.draft.portions.splice(+el.dataset.i, 1); },
+  saveFood() {
+    syncDraft(); const d = ui.edit.draft;
+    if (!d.name.trim()) { info('Please give the food a name.'); return 'keep'; }
+    const p = num(d.p100), c = num(d.c100), fa = num(d.f100);
+    const kcal = String(d.kcal100).trim() === '' ? Math.round(p * 4 + c * 4 + fa * 9) : Math.round(num(d.kcal100));
+    const vals = { name: d.name.trim(), brand: (d.brand || '').trim(), unit: d.unit, kcal100: kcal, p100: r1(p), c100: r1(c), f100: r1(fa), portions: d.portions.filter((x) => x.label.trim() && num(x.g) > 0).map((x) => ({ label: x.label.trim(), g: num(x.g) })), fav: !!d.fav, icon: d.icon };
+    let f;
+    if (ui.edit.id) { f = food(ui.edit.id); Object.assign(f, vals); }
+    else { f = { id: uid(), source: 'own', uses: 0, ...vals }; S.foods.push(f); }
+    save();
+    const from = ui.edit.from, date = ui.edit.date;
+    if (from === 'pick' && ui.pendingPick) { ui.edit = ui.pendingPick; ui.pendingPick = null; ui.edit.draft.items.push({ foodId: f.id, g: defaultGrams(f) }); }
+    else { ui.edit = null; if (from === 'sheet') openPortion(f, { date }); }
+  },
+  deleteFood() {
+    const f = food(ui.edit.id);
+    ask('Delete "' + f.name + '"? Logged entries stay in your history.', 'Delete food', () => {
+      S.foods = S.foods.filter((x) => x.id !== f.id); S.meals.forEach((m) => { m.items = m.items.filter((it) => it.foodId !== f.id); }); save(); ui.edit = null;
+    });
+  },
+  newMeal() { ui.edit = { type: 'meal', id: null, draft: { name: '', items: [], fav: false } }; },
+  editMeal(el) { const m = meal(el.dataset.id); ui.edit = { type: 'meal', id: m.id, draft: JSON.parse(JSON.stringify({ name: m.name, items: m.items, fav: !!m.fav })) }; },
+  mealAddFood() { syncDraft(); ui.sheet = { tab: S.foods.some((f) => f.lastUsed) ? 'recent' : 'search', q: '', pick: true, date: todayKey() }; },
+  rmMealItem(el) { syncDraft(); ui.edit.draft.items.splice(+el.dataset.i, 1); },
+  saveMeal() {
+    syncDraft(); const d = ui.edit.draft;
+    if (!d.name.trim()) { info('Please give the meal a name.'); return 'keep'; }
+    if (!d.items.length) { info('Add at least one food.'); return 'keep'; }
+    let m; if (ui.edit.id) { m = meal(ui.edit.id); Object.assign(m, { name: d.name.trim(), items: d.items, fav: d.fav }); }
+    else { m = { id: uid(), name: d.name.trim(), items: d.items, fav: d.fav, uses: 0 }; S.meals.push(m); }
+    save(); ui.edit = null; return m;
+  },
+  logMealNow() { const m = A.saveMeal(); if (m === 'keep' || !m) return; const ids = logMeal(m, Date.now()); save(); toast(m.name + ' logged · ' + fmt(mealNut(m).kcal) + ' kcal', ids); },
+  deleteMeal() { const m = meal(ui.edit.id); ask('Delete meal "' + m.name + '"?', 'Delete meal', () => { S.meals = S.meals.filter((x) => x.id !== m.id); save(); ui.edit = null; }); },
+  // periods
+  newPeriod() {
+    const t = todayKey(); const ps = periodsSorted(); const last = ps[ps.length - 1];
+    let start = t; if (last) { start = last.end ? addDays(last.end, 1) : addDays(t, 1); if (start < t) start = t; }
+    ui.edit = { type: 'period', id: null, draft: { goal: 'cut', start, end: addDays(start, 55), week: ['D', 'D', 'D', 'D', 'D', 'M', 'M'], targets: defaultTargets(S.maintenance) } };
+  },
+  editPeriod(el) { const p = S.periods.find((x) => x.id === el.dataset.id); ui.edit = { type: 'period', id: p.id, draft: JSON.parse(JSON.stringify(p)) }; },
+  draftGoal(el) {
+    syncDraft(); const d = ui.edit.draft; const k = el.dataset.k; const main = GOALS[k].main;
+    d.goal = k; if (k !== 'maintain') d.week = d.week.map((x) => (x === 'M' ? 'M' : main));
+    if (k !== 'maintain' && d.week.every((x) => x === 'M')) d.week = [main, main, main, main, main, 'M', 'M'];
+  },
+  toggleDay(el) { syncDraft(); const d = ui.edit.draft; const i = +el.dataset.i; d.week[i] = d.week[i] === 'M' ? GOALS[d.goal].main : 'M'; },
+  clearEnd() { syncDraft(); ui.edit.draft.end = null; },
+  savePeriod() {
+    syncDraft(); const d = ui.edit.draft;
+    if (!d.start) { info('Please pick a start date.'); return 'keep'; }
+    if (!d.end) d.end = null;
+    if (d.end && d.end < d.start) { info('The end date is before the start date.'); return 'keep'; }
+    // an open-ended period that started earlier simply ends the day before this one starts
+    const closing = S.periods.filter((p) => p.id !== ui.edit.id && !p.end && p.start < d.start);
+    const clash = S.periods.find((p) => p.id !== ui.edit.id && !closing.includes(p) && p.start <= (d.end || '9999-12-31') && d.start <= (p.end || '9999-12-31'));
+    const id = ui.edit.id;
+    const commit = () => {
+      closing.forEach((p) => { p.end = addDays(d.start, -1); });
+      const vals = { goal: d.goal, start: d.start, end: d.end, week: d.goal === 'maintain' ? Array(7).fill('M') : d.week, targets: d.targets };
+      if (id) Object.assign(S.periods.find((p) => p.id === id), vals); else S.periods.push({ id: uid(), ...vals });
+      save(); ui.edit = null;
+    };
+    if (clash) ask('This overlaps your ' + GOALS[clash.goal].name + ' period (' + dShort(clash.start) + ' – ' + (clash.end ? dShort(clash.end) : 'open-ended') + '). Where they overlap, the period that starts later wins.', 'Save anyway', commit, false);
+    else commit();
+  },
+  deletePeriod() { ask('Delete this period? Your logged food stays; days in it fall back to maintenance targets.', 'Delete period', () => { S.periods = S.periods.filter((p) => p.id !== ui.edit.id); save(); ui.edit = null; }); },
+  export() {
+    S.lastExport = Date.now(); save();
+    const name = 'muscle-maker-backup-' + todayKey() + '.json';
+    const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
+    try {
+      const file = new File([blob], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: 'Muscle Maker backup' }).catch(() => {}); return; }
+    } catch (e) { /* fall through to download */ }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast('Backup exported');
+  },
+  import() { document.getElementById('importFile').click(); }
+};
+function openIconPick(kind, obj) {
+  ui.iconPick = { title: 'Added to favorites', name: obj.name, get: () => obj.icon, set: (k) => { obj.icon = obj.icon === k ? null : k; save(); } };
+}
+
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest('[data-a]'); if (!el) return;
+  const fn = A[el.dataset.a]; if (!fn) return;
+  ev.preventDefault();
+  fn(el);
+  render();
+});
+document.addEventListener('input', (ev) => {
+  const el = ev.target;
+  if (el.id === 'sheetQ') { ui.sheet.q = el.value; offSearch(el.value.trim().toLowerCase()); document.getElementById('sheetBody').innerHTML = searchResults(); }
+  else if (el.id === 'foodsQ') { ui.foodsQ = el.value; document.getElementById('foodsList').innerHTML = foodsListHtml(); }
+  else if (el.dataset.t) {
+    const ty = el.dataset.t; const box = {}; document.querySelectorAll(`[data-t="${ty}"]`).forEach((i) => { box[i.dataset.m] = num(i.value); });
+    const k = kcalOf({ p: box.p || 0, c: box.c || 0, f: box.f || 0 }); const dl = k - S.maintenance;
+    document.getElementById('k-' + ty).textContent = fmt(k); document.getElementById('dl-' + ty).textContent = (dl >= 0 ? '+' : '−') + fmt(Math.abs(dl));
+  }
+});
+document.addEventListener('change', (ev) => {
+  const el = ev.target;
+  if (el.id === 'ptTime' && ui.portion) {
+    const [h, m] = el.value.split(':').map(Number); if (isNaN(h)) return;
+    const d = parse(ui.portion.date); d.setHours(h, m || 0, 0, 0); ui.portion.ts = d.getTime();
+  } else if (el.id === 'maint') {
+    const v = Math.round(num(el.value)); if (v >= 800 && v <= 8000) { S.maintenance = v; save(); } else { info('Please enter a value between 800 and 8,000 kcal.'); render(); }
+  } else if (el.dataset.mi != null && ui.edit && ui.edit.type === 'meal') { syncDraft(); render(); }
+  else if ((el.dataset.d === 'start' || el.dataset.d === 'end') && ui.edit && ui.edit.type === 'period') { syncDraft(); render(); }
+  else if (el.id === 'importFile') {
+    const file = el.files[0]; if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const data = JSON.parse(rd.result);
+        if (!data || !Array.isArray(data.foods) || !Array.isArray(data.log) || !Array.isArray(data.periods)) throw new Error('format');
+        ask('Replace all data on this phone with this backup (' + data.log.length + ' entries, ' + data.foods.length + ' foods)?', 'Replace', () => { S = data; save(); ui.edit = null; toast('Backup imported'); });
+      } catch (e) { info('That file is not a Muscle Maker backup.'); }
+      render();
+      el.value = '';
+    };
+    rd.readAsText(file);
+  }
+});
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.id === 'sheetQ') ev.target.blur(); });
+
+render();
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|claudeusercontent/.test(location.host)) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
