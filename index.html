@@ -271,11 +271,11 @@ function tsFor(k) {
   if (k === todayKey()) return now.getTime();
   const d = parse(k); d.setHours(now.getHours(), now.getMinutes(), 0, 0); return d.getTime();
 }
-function logFood(f, g, ts, pu) {
+function logFood(f, g, ts, pu, noStash) {
   const n = nut(f, g);
   const e = { id: uid(), ts, foodId: f.id, name: f.name, g, kcal: n.kcal, p: n.p, c: n.c, f: n.f };
   if (pu) { e.pu = pu.label; e.pn = pu.n; }
-  e.st = takeStash(f, g);
+  e.st = noStash ? null : takeStash(f, g);
   S.log.push(e);
   f.uses = (f.uses || 0) + 1; f.lastUsed = Date.now(); f.lastGrams = g;
   if (pu !== undefined) { f.lastUnit = pu ? pu.label : null; f.lastCount = pu ? pu.n : null; }
@@ -289,9 +289,9 @@ function loggedText(name, kcal, entries) {
   else if (st.length > 1) tail = ' · ' + st.length + ' taken from Stash';
   return name + ' logged · ' + fmt(kcal) + ' kcal' + tail;
 }
-function logMeal(m, ts) {
+function logMeal(m, ts, noStash) {
   const ids = [];
-  m.items.forEach((it) => { const f = food(it.foodId); if (f) ids.push(logFood(f, it.g, ts).id); });
+  m.items.forEach((it) => { const f = food(it.foodId); if (f) ids.push(logFood(f, it.g, ts, undefined, noStash).id); });
   m.uses = (m.uses || 0) + 1; m.lastUsed = Date.now();
   const pl = S.plan.find((x) => x.mealId === m.id);
   if (pl) { pl.n -= 1; if (pl.n <= 0) S.plan = S.plan.filter((x) => x !== pl); ids.plan = m.id; }
@@ -435,7 +435,8 @@ function renderSheet() {
   return `<div class="layer" style="z-index:40"><div class="backdrop" data-a="closeSheet"></div><div class="sheet" role="dialog" aria-label="Add food">
     <div class="grab"></div>
     <div class="stack" style="gap:14px;padding:10px 20px 6px">
-      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1><button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button></div>
+      ${sh.out ? `<span class="muted" style="font-size:12px;margin-bottom:-8px">Eating out · nothing is taken from Stash</span>` : ''}
+      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button></div>
       <div class="seg" role="tablist" style="grid-template-columns:repeat(3,1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
       ${sh.tab === 'search' ? `<label class="search">${svg(I.search, 18)}<input id="sheetQ" type="search" placeholder="Search foods" value="${esc(sh.q || '')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
     </div>
@@ -472,6 +473,9 @@ function renderPortion() {
         ${[['kcal', fmt(n.kcal), ''], ['Protein', r1(n.p) + ' g', '--p'], ['Carbs', r1(n.c) + ' g', '--c'], ['Fat', r1(n.f) + ' g', '--f']].map(([l, val, c]) => `<div class="stack" style="gap:4px"><span class="muted rowc" style="font-size:11px;gap:6px">${c ? `<span class="dot" style="width:6px;height:6px;background:var(${c})"></span>` : ''}${l}</span><span class="num" style="font-size:18px;font-weight:600">${val}</span></div>`).join('')}
       </div>
       <label class="rowc" style="align-self:flex-start;gap:8px;height:36px;padding:0 12px;border-radius:999px;background:var(--surface);font-size:13px;font-weight:500">${svg(I.clock, 15)}${pt.date === todayKey() ? 'Today' : dShort(pt.date)}<input type="time" id="ptTime" value="${hm(pt.ts)}" aria-label="Time" style="border:0;background:none;outline:none;font-size:13px;font-weight:600;padding:0"></label>
+      ${stashOf(f.id) ? `<button type="button" role="switch" aria-checked="${pt.take}" data-a="ptTake" class="between" style="width:100%;min-height:48px;padding:0 6px 0 14px;margin-top:-6px;border:0;border-radius:14px;background:var(--surface);text-align:left">
+        <span class="stack" style="gap:2px"><span style="font-size:14px;font-weight:500">Take from Stash</span><span class="muted" style="font-size:12px">${pt.take ? 'Stash: ' + esc(amtMain(stashOf(f.id))) + (pt.logId ? '' : ' now') : 'Off · eating out'}</span></span>
+        <span aria-hidden="true" style="width:46px;height:28px;border-radius:999px;padding:3px;background:${pt.take ? 'var(--accent)' : 'var(--line2)'};display:flex;justify-content:${pt.take ? 'flex-end' : 'flex-start'}"><span style="width:22px;height:22px;border-radius:999px;background:#fff"></span></span></button>` : ''}
       <div class="keypad" style="margin-top:auto">${keys.map((k) => `<button type="button" data-a="key" data-k="${k}" aria-label="${k === '⌫' ? 'Delete' : k === '.' ? 'Decimal point' : k}">${k}</button>`).join('')}</div>
       <button type="button" class="btn-primary" data-a="savePortion" ${g > 0 ? '' : 'disabled style="opacity:.4"'}>${pt.logId ? 'Save · ' + fmt(n.kcal) + ' kcal' : 'Log ' + fmt(n.kcal) + ' kcal'}</button>
       ${pt.logId ? `<button type="button" class="btn-danger" data-a="deleteEntry">Delete entry</button>` : ''}
@@ -707,7 +711,7 @@ function renderSettings() {
     <section class="stack" aria-label="Screen fit" style="gap:12px"><h2 class="sec" style="font-size:13px">Screen fit</h2>
       <div class="between" style="min-height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--surface)"><span class="stack" style="gap:2px"><span style="font-size:16px">Move everything down</span><span class="muted num" style="font-size:12px">${NUDGE ? (NUDGE > 0 ? '+' : '−') + Math.abs(NUDGE) + ' pt' : 'off'}</span></span>
         <div class="stepper" style="background:var(--sheet)"><button type="button" aria-label="Move up" data-a="nudge" data-k="-4">${svg(I.minus, 16, 2.4)}</button><button type="button" aria-label="Move down" data-a="nudge" data-k="4">${svg(I.plus, 16, 2.4)}</button></div></div>
-      <span class="muted" style="font-size:12px;padding:0 4px">If the tab bar floats above the bottom edge or the title sits under the status bar, nudge until it fits. Saved on this phone only.${NUDGE ? ` <button type="button" class="btn" data-a="nudge" data-k="0" style="min-height:0;padding:0;font-size:12px">Reset</button>` : ''}</span>
+      <span class="muted" style="font-size:12px;padding:0 4px">If the tab bar floats above the bottom edge or the title sits under the status bar, nudge until it fits. Saved on this phone only.<br><span class="num" style="font-size:11px;color:#5A6477">${esc(screenInfo())}</span>${NUDGE ? ` <button type="button" class="btn" data-a="nudge" data-k="0" style="min-height:0;padding:0;font-size:12px">Reset</button>` : ''}</span>
     </section>
     <section class="stack" aria-label="Data" style="gap:12px"><h2 class="sec" style="font-size:13px">Data</h2>
       <div class="stack" style="border-radius:16px;background:var(--surface);overflow:hidden">
@@ -1037,7 +1041,8 @@ function openPortion(f, opts = {}) {
   let unit = null, val;
   if (opts.grams != null) { const p = portionOf(f, opts.pu); if (p && opts.pn > 0) { unit = p.label; val = fmtN(opts.pn).replace(/,/g, ''); } else val = String(Math.round(opts.grams * 10) / 10); }
   else { const d = defaultPortion(f); if (d.pu) { unit = d.pu.label; val = String(d.pu.n); } else val = String(Math.round(d.g * 10) / 10); }
-  ui.portion = { foodId: f.id, unit, val, fresh: true, date, ts: opts.ts || tsFor(date), logId: opts.logId || null };
+  const take = opts.logId ? !!opts.took : !(ui.sheet && ui.sheet.out);
+  ui.portion = { foodId: f.id, unit, val, fresh: true, date, ts: opts.ts || tsFor(date), logId: opts.logId || null, take };
 }
 
 /* ---------- Open Food Facts ---------- */
@@ -1082,12 +1087,12 @@ const A = {
   sheetTab(el) { ui.sheet.tab = el.dataset.k; if (el.dataset.k === 'search') setTimeout(() => { const i = document.getElementById('sheetQ'); if (i) i.focus(); }, 30); },
   openPortion(el) { openPortion(food(el.dataset.id)); },
   quickFood(el) {
-    const f = food(el.dataset.id); const d = defaultPortion(f); const e = logFood(f, d.g, tsFor(ui.sheet.date), d.pu); save();
+    const f = food(el.dataset.id); const d = defaultPortion(f); const e = logFood(f, d.g, tsFor(ui.sheet.date), d.pu, ui.sheet.out); save();
     toast(loggedText(f.name, e.kcal, [e]), [e.id]);
   },
   quickMeal(el) {
     const m = meal(el.dataset.id); if (!m.items.length) return;
-    const ids = logMeal(m, tsFor(ui.sheet ? ui.sheet.date : todayKey())); save();
+    const ids = logMeal(m, tsFor(ui.sheet ? ui.sheet.date : todayKey()), !!(ui.sheet && ui.sheet.out)); save();
     toast(loggedText(m.name, mealNut(m).kcal, S.log.filter((x) => ids.includes(x.id))), ids);
   },
   pickAdd(el) {
@@ -1118,6 +1123,8 @@ const A = {
     else if (g.replace('.', '').length < 5) g = g === '0' ? k : g + k;
     pt.val = g; pt.fresh = false;
   },
+  toggleOut() { ui.sheet.out = !ui.sheet.out; },
+  ptTake() { ui.portion.take = !ui.portion.take; },
   ptUnit(el) {
     const pt = ui.portion; const f = food(pt.foodId); const k = el.dataset.k || null; if (k === pt.unit) return;
     const g = ptGrams(pt, f); const P = portionOf(f, k);
@@ -1144,18 +1151,18 @@ const A = {
     if (pt.logId) {
       const e = S.log.find((x) => x.id === pt.logId); const n = nut(f, g);
       if (e.st) { giveStash(e.st); e.st = null; }
-      e.st = takeStash(f, g);
+      e.st = pt.take ? takeStash(f, g) : null;
       Object.assign(e, { g, ts: pt.ts, kcal: n.kcal, p: n.p, c: n.c, f: n.f, name: f.name, pu: pu ? pu.label : undefined, pn: pu ? pu.n : undefined });
       f.lastGrams = g; f.lastUnit = pu ? pu.label : null; f.lastCount = pu ? pu.n : null; save(); ui.portion = null; toast('Entry updated');
     } else {
-      const e = logFood(f, g, pt.ts, pu); save(); ui.portion = null; ui.sheet = null; toast(loggedText(f.name, e.kcal, [e]), [e.id]);
+      const e = logFood(f, g, pt.ts, pu, !pt.take); save(); ui.portion = null; ui.sheet = null; toast(loggedText(f.name, e.kcal, [e]), [e.id]);
     }
   },
   deleteEntry() { const id = ui.portion.logId; const e = S.log.find((x) => x.id === id); giveStash(e.st); S.log = S.log.filter((x) => x.id !== id); save(); ui.portion = null; ui.deleted = e; toast('Entry deleted' + (e.st ? ' · back in Stash' : ''), ['__restore']); },
   editEntry(el) {
     const e = S.log.find((x) => x.id === el.dataset.id); const f = food(e.foodId);
     if (!f) { ask('This food was deleted from your library. Delete this entry?', 'Delete entry', () => { S.log = S.log.filter((x) => x.id !== e.id); save(); }); return; }
-    openPortion(f, { grams: e.g, pu: e.pu, pn: e.pn, ts: e.ts, date: keyOf(e.ts), logId: e.id });
+    openPortion(f, { grams: e.g, pu: e.pu, pn: e.pn, ts: e.ts, date: keyOf(e.ts), logId: e.id, took: !!e.st });
   },
   toggleFavPortion() { const f = food(ui.portion.foodId); f.fav = !f.fav; save(); if (f.fav && !f.icon) openIconPick('food', f); },
   undo() {
@@ -1436,6 +1443,8 @@ document.addEventListener('keydown', (ev) => {
 let NUDGE = Math.round(num(lsGet('mmm.nudge', '0')));
 function fit() {
   const root = document.documentElement;
+  // iOS can leave the whole page scrolled up (e.g. after the keyboard closes); the app never scrolls the page itself, so snap it back
+  if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
   const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   let h = window.innerHeight;
   const portrait = window.innerWidth < window.innerHeight;
@@ -1447,10 +1456,29 @@ fit();
 window.addEventListener('resize', fit);
 window.addEventListener('orientationchange', () => setTimeout(fit, 300));
 window.addEventListener('pageshow', fit);
+window.addEventListener('scroll', () => { if (window.scrollY) fit(); }, { passive: true });
+document.addEventListener('focusout', () => setTimeout(fit, 120));
+if (window.visualViewport) { visualViewport.addEventListener('resize', () => setTimeout(fit, 60)); visualViewport.addEventListener('scroll', () => { if (!document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) fit(); }); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(fit, 50); });
+setTimeout(fit, 300);
+/* numbers for Settings → Screen fit, to diagnose layout problems on the phone */
+function screenInfo() {
+  const pr = document.createElement('div');
+  pr.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+  document.body.appendChild(pr); const cs = getComputedStyle(pr); const st = parseFloat(cs.paddingTop) || 0, sb = parseFloat(cs.paddingBottom) || 0; pr.remove();
+  const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  const vv = window.visualViewport; const app = document.getElementById('app').getBoundingClientRect();
+  return (standalone ? 'Home Screen app' : 'Browser') + ' · window ' + window.innerWidth + '×' + window.innerHeight + ' · screen ' + screen.width + '×' + screen.height +
+    ' · safe ' + Math.round(st) + '/' + Math.round(sb) + ' · vv ' + (vv ? Math.round(vv.height) + ' @' + Math.round(vv.offsetTop) : '–') + ' · scroll ' + Math.round(window.scrollY) + ' · app ' + Math.round(app.top) + '–' + Math.round(app.bottom) + ' · v2.2';
+}
 
 render();
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|claudeusercontent/.test(location.host)) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hadSW = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
+  // when a new version of the app takes over, reload once so it shows right away
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
 }
 </script>
 </body>
