@@ -18,7 +18,7 @@
   --bg:#090C13;--sheet:#0F1420;--surface:#141A27;--line:#1E2636;--line2:#2A3347;
   --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;
   --p:#34D3B0;--c:#F2A541;--f:#B79CFF;
-  --cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
+  --weight:#FFD25A;--cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
   --st:calc(env(safe-area-inset-top,0px) + 8px);--sb:var(--sbBase,env(safe-area-inset-bottom,0px));
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -81,6 +81,7 @@ html,body{overflow:hidden}
 .tabbar button{border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:500;height:50px;justify-content:center}
 .tabbar button.on{color:var(--text);font-weight:600}
 .fab{position:fixed;right:20px;bottom:calc(var(--sb) + 82px);width:58px;height:58px;border-radius:999px;border:0;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;z-index:11;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.wbtn{position:fixed;right:20px;bottom:calc(var(--sb) + 82px);height:54px;padding:0 20px 0 16px;border-radius:999px;border:0;background:var(--weight);color:#2A1F00;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;z-index:11;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .layer{position:fixed;inset:0;display:flex;flex-direction:column}
 .backdrop{position:absolute;inset:0;background:rgba(2,4,9,.72)}
 .sheet{position:absolute;left:0;right:0;bottom:0;top:calc(var(--st) + 10px);background:var(--sheet);border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden}
@@ -164,7 +165,7 @@ const I = {
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   box: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>', plan: '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   cart: '<path d="M3 4h2.5l2.2 11h10.6L20.5 8H7"/><circle cx="9.5" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/>',
-  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', minus: '<path d="M5 12h14"/>', down: '<path d="M7 10l5 5 5-5"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', scale: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 10a5 5 0 0 1 7 0M12 10l1.3-1.6"/>', minus: '<path d="M5 12h14"/>', down: '<path d="M7 10l5 5 5-5"/>',
   share: '<path d="M12 4v11M8 8l4-4 4 4M6 13v6h12v-6"/>', flame: '<path d="M12 21c4 0 6.5-2.7 6.5-6.3 0-4-3.3-6.2-4.5-9.7-2.2 1.6-3.2 3.9-3 6.3-1.3-.8-2-2.2-2.1-3.6C7.3 9.3 5.5 11.8 5.5 14.7 5.5 18.3 8 21 12 21z"/>'
 };
 const LOGO = `<svg width="22" height="22" viewBox="0 0 100 100" fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="#5B9BFF" d="M28 8C26 18 17 28 17 44C17 52 18 58 19.5 64 M72 8C74 18 83 28 83 44C83 52 82 58 80.5 64 M50 38V54"/><path stroke="#34D3B0" d="M24 94C22 84 20.5 74 19.5 64C27 75 44 75 50 58C56 75 73 75 80.5 64C79.5 74 78 84 76 94"/></svg>`;
@@ -179,7 +180,7 @@ function defaultTargets(maint) {
 function freshState() {
   const t = todayKey();
   return {
-    v: 2, maintenance: 2400, foods: [], meals: [], log: [], lastExport: null, stash: [], plan: [], shop: [], cart: {},
+    v: 3, maintenance: 2400, foods: [], meals: [], log: [], lastExport: null, stash: [], plan: [], shop: [], cart: {}, weights: [],
     periods: [{ id: uid(), goal: 'maintain', start: t, end: null, week: Array(7).fill('M'), targets: defaultTargets(2400) }]
   };
 }
@@ -192,8 +193,10 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || freshState(); } catch (e) {
 // ask the browser to keep this app's storage even when the phone is low on space
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* ignore */ }
 function migrate(d) {
-  d.stash = d.stash || []; d.plan = d.plan || []; d.shop = d.shop || []; d.cart = d.cart || {};
-  if (!d.v || d.v < 2) d.v = 2;
+  d.stash = d.stash || []; d.plan = d.plan || []; d.shop = d.shop || []; d.cart = d.cart || {}; d.weights = d.weights || [];
+  // v3: entries belong to a meal group (gid). Older entries logged together (same time, e.g. a saved meal) become one group.
+  (d.log || []).forEach((e) => { if (!e.gid) e.gid = 'g' + e.ts; });
+  if (!d.v || d.v < 3) d.v = 3;
   return d;
 }
 migrate(S);
@@ -201,11 +204,56 @@ const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == n
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } };
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage full or blocked'); } }
 
-const ui = { app: lsGet('mmm.app', 'cal') === 'stash' ? 'stash' : 'cal', stab: 'stash', stashQ: '', appMenu: false, qty: null, newPortion: null, shopAdd: null, dialog: null, tab: 'today', day: null, foodsSeg: 'foods', foodsQ: '', sheet: null, portion: null, iconPick: null, edit: null, toast: null, off: null };
+const ui = { app: lsGet('mmm.app', 'cal') === 'stash' ? 'stash' : 'cal', stab: 'stash', stashQ: '', appMenu: false, qty: null, newPortion: null, shopAdd: null, dialog: null, tab: 'today', day: null, foodsSeg: 'foods', foodsQ: '', sheet: null, portion: null, iconPick: null, edit: null, toast: null, off: null, open: {}, tAdv: false, hAdv: false, wt: null, rename: null };
 
 const food = (id) => S.foods.find((f) => f.id === id);
 const meal = (id) => S.meals.find((m) => m.id === id);
-function nut(f, g) { const k = g / 100; return { kcal: f.kcal100 * k, p: f.p100 * k, c: f.c100 * k, f: f.f100 * k }; }
+/* advanced values: saturated fat, sugar, fibre, salt (g per 100 g, optional — null when unknown) */
+const EXK = [['sf', 'Sat. fat'], ['su', 'Sugar'], ['fi', 'Fibre'], ['sa', 'Salt']];
+const hasV = (v) => v != null && v !== '' && isFinite(v);
+function nut(f, g) {
+  const k = g / 100; const r = { kcal: f.kcal100 * k, p: f.p100 * k, c: f.c100 * k, f: f.f100 * k };
+  EXK.forEach(([x]) => { const v = f[x + '100']; r[x] = hasV(v) ? v * k : null; });
+  return r;
+}
+/* an entry's advanced values; older entries fall back to the food's current values */
+function exOf(e) {
+  const fd = food(e.foodId); const o = { none: true };
+  EXK.forEach(([x]) => { let v = e[x]; if (!hasV(v) && fd && hasV(fd[x + '100'])) v = fd[x + '100'] * e.g / 100; if (hasV(v)) o.none = false; o[x] = hasV(v) ? v : 0; });
+  return o;
+}
+function dayExtras(k) {
+  const t = { sf: 0, su: 0, fi: 0, sa: 0, n: 0, none: 0 };
+  S.log.forEach((e) => { if (keyOf(e.ts) !== k) return; const x = exOf(e); EXK.forEach(([q]) => { t[q] += x[q]; }); t.n++; if (x.none) t.none++; });
+  return t;
+}
+const fmtEx = (x, v) => (x === 'sa' ? (Math.round(v * 10) / 10).toFixed(1) : String(Math.round(v)));
+/* meal groups on the timeline */
+function autoName(ts) {
+  const d = new Date(ts); const m = d.getHours() * 60 + d.getMinutes();
+  if (m >= 240 && m < 660) return 'Breakfast'; if (m >= 660 && m < 900) return 'Lunch'; if (m >= 1050 && m < 1320) return 'Dinner'; return 'Snack';
+}
+function dayGroups(k) {
+  const by = {};
+  S.log.filter((e) => keyOf(e.ts) === k).sort((a, b) => a.ts - b.ts).forEach((e) => { const id = e.gid || e.id; (by[id] = by[id] || []).push(e); });
+  return Object.keys(by).map((id) => {
+    const es = by[id]; const ts = es[0].ts; const named = es.find((x) => x.gn);
+    const t = { id, entries: es, ts, custom: named ? named.gn : null, name: named ? named.gn : autoName(ts), kcal: 0, p: 0, c: 0, f: 0 };
+    es.forEach((e) => { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; });
+    return t;
+  }).sort((a, b) => a.ts - b.ts);
+}
+const groupOf = (gid) => { const e = S.log.find((x) => x.gid === gid); return e ? dayGroups(keyOf(e.ts)).find((g) => g.id === gid) : null; };
+/* weight */
+const weightOn = (k) => S.weights.find((w) => w.d === k);
+const lastWeight = () => [...S.weights].sort((a, b) => (a.d < b.d ? 1 : -1))[0];
+function weightTrend(from, to) {
+  const ws = S.weights.filter((w) => w.d >= from && w.d <= to).sort((a, b) => (a.d < b.d ? -1 : 1));
+  if (ws.length < 2 || ws[0].d === ws[ws.length - 1].d) return { ws, slope: null };
+  const xs = ws.map((w) => daysBetween(from, w.d)); const mx = xs.reduce((a, b) => a + b, 0) / xs.length; const my = ws.reduce((a, w) => a + w.kg, 0) / ws.length;
+  let nume = 0, den = 0; ws.forEach((w, i) => { nume += (xs[i] - mx) * (w.kg - my); den += (xs[i] - mx) ** 2; });
+  return { ws, slope: den ? nume / den * 7 : null };
+}
 function mealNut(m) {
   const t = { kcal: 0, p: 0, c: 0, f: 0 };
   m.items.forEach((it) => { const fd = food(it.foodId); if (!fd) return; const n = nut(fd, it.g); t.kcal += n.kcal; t.p += n.p; t.c += n.c; t.f += n.f; });
@@ -277,9 +325,11 @@ function tsFor(k) {
   if (k === todayKey()) return now.getTime();
   const d = parse(k); d.setHours(now.getHours(), now.getMinutes(), 0, 0); return d.getTime();
 }
-function logFood(f, g, ts, pu, noStash) {
+function logFood(f, g, ts, pu, noStash, grp) {
   const n = nut(f, g);
-  const e = { id: uid(), ts, foodId: f.id, name: f.name, g, kcal: n.kcal, p: n.p, c: n.c, f: n.f };
+  const e = { id: uid(), ts, foodId: f.id, name: f.name, g, kcal: n.kcal, p: n.p, c: n.c, f: n.f, gid: grp ? grp.gid : uid() };
+  if (grp && grp.gn) e.gn = grp.gn;
+  EXK.forEach(([x]) => { if (n[x] != null) e[x] = n[x]; });
   if (pu) { e.pu = pu.label; e.pn = pu.n; }
   e.st = noStash ? null : takeStash(f, g);
   S.log.push(e);
@@ -295,9 +345,9 @@ function loggedText(name, kcal, entries) {
   else if (st.length > 1) tail = ' · ' + st.length + ' taken from Stash';
   return name + ' logged · ' + fmt(kcal) + ' kcal' + tail;
 }
-function logMeal(m, ts, noStash) {
-  const ids = [];
-  m.items.forEach((it) => { const f = food(it.foodId); if (f) ids.push(logFood(f, it.g, ts, undefined, noStash).id); });
+function logMeal(m, ts, noStash, grp) {
+  const ids = []; grp = grp || { gid: uid(), gn: m.name };
+  m.items.forEach((it) => { const f = food(it.foodId); if (f) ids.push(logFood(f, it.g, ts, undefined, noStash, grp).id); });
   m.uses = (m.uses || 0) + 1; m.lastUsed = Date.now();
   const pl = S.plan.find((x) => x.mealId === m.id);
   if (pl) { pl.n -= 1; if (pl.n <= 0) S.plan = S.plan.filter((x) => x !== pl); ids.plan = m.id; }
@@ -367,35 +417,68 @@ function backupNudge() {
 }
 
 /* ---------- Today / day view ---------- */
+function extrasGrid(vals, label) {
+  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${EXK.map(([x, l]) => `<div class="stack" style="gap:4px"><span class="muted" style="font-size:11px">${label ? label + ' ' + l.toLowerCase() : l}</span><span class="num" style="font-size:17px;font-weight:600">${vals ? fmtEx(x, vals[x]) : '—'}<span class="muted" style="font-size:12px;font-weight:400"> g</span></span></div>`).join('')}</div>`;
+}
+const chevron = (open) => `<span aria-hidden="true" style="display:inline-flex;transition:transform .2s;transform:rotate(${open ? 180 : 0}deg)">${svg(I.down, 14, 2.2)}</span>`;
+function entryRow(e, tg, maxK, ic) {
+  const f = food(e.foodId);
+  return `<button type="button" data-a="editEntry" data-id="${e.id}" style="display:flex;gap:16px;border:0;background:none;padding:0;text-align:left;width:100%">
+    <div style="width:10px;display:flex;flex-direction:column;align-items:center;align-self:stretch"><span style="width:9px;height:9px;border-radius:999px;border:2px solid var(--accent);margin-top:4px"></span><span style="flex:1;width:1px;background:var(--line)"></span></div>
+    <div class="stack" style="flex:1;gap:6px;padding-bottom:16px;min-width:0">
+      <div class="between" style="align-items:baseline"><span class="muted num" style="font-size:12px">${hm(e.ts)} · ${e.pu ? esc(countLabel(e.pu, e.pn)) + ' · ' : ''}${fmt(e.g)} ${unitOf(f)}</span><span class="num" style="font-size:16px;font-weight:600">${fmt(e.kcal)}</span></div>
+      <div class="between" style="align-items:baseline"><span class="rowc" style="gap:8px;font-size:16px;font-weight:500;min-width:0">${icon(ic, 18, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span></span><span class="muted num" style="font-size:12px;white-space:nowrap">${tg.kcal ? Math.round(e.kcal / tg.kcal * 100) : 0}% of day</span></div>
+      ${splitBar(e, maxK)}
+    </div></button>`;
+}
+function groupRow(g, tg, maxK) {
+  const open = !!ui.open[g.id];
+  const icons = []; g.entries.forEach((e) => { const f = food(e.foodId); if (f && f.fav && f.icon && !icons.includes(f.icon) && icons.length < 3) icons.push(f.icon); });
+  return `<div style="display:flex;gap:16px">
+    <div style="width:10px;display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:999px;border:2px solid var(--accent);background:${open ? 'var(--accent)' : 'none'};margin-top:4px"></span><span style="flex:1;width:1px;background:var(--line)"></span></div>
+    <div class="stack" style="flex:1;min-width:0;padding-bottom:16px">
+      <button type="button" data-a="grp" data-id="${g.id}" aria-expanded="${open}" style="border:0;background:none;padding:0;text-align:left;width:100%;display:flex;flex-direction:column;gap:6px">
+        <div class="between" style="align-items:baseline;width:100%"><span class="muted num" style="font-size:12px">${hm(g.ts)} · ${g.entries.length} items</span><span class="num" style="font-size:16px;font-weight:600">${fmt(g.kcal)}</span></div>
+        <div class="between" style="align-items:baseline;width:100%"><span class="rowc" style="gap:8px;font-size:16px;font-weight:600;min-width:0">${icons.map((k) => icon(k, 18, 'var(--accent)')).join('')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.name)}</span><span class="muted">${chevron(open)}</span></span><span class="muted num" style="font-size:12px;white-space:nowrap">${tg.kcal ? Math.round(g.kcal / tg.kcal * 100) : 0}% of day</span></div>
+        <div style="width:100%">${splitBar(g, maxK)}</div>
+      </button>
+      ${open ? `<div class="stack" style="margin-top:12px;padding-left:12px;border-left:1px solid var(--line2)">
+        ${g.entries.map((e) => { const f = food(e.foodId); const ic = f && f.fav ? f.icon : null; return `<button type="button" data-a="editEntry" data-id="${e.id}" class="between" style="border:0;border-bottom:1px solid #1B2232;background:none;padding:10px 0;text-align:left;width:100%;min-height:52px">
+          <span class="stack" style="gap:3px;min-width:0"><span class="rowc" style="gap:7px;font-size:15px;font-weight:500;min-width:0">${icon(ic, 16, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span></span><span class="muted num" style="font-size:12px">${e.pu ? esc(countLabel(e.pu, e.pn)) + ' · ' : ''}${fmt(e.g)} ${unitOf(f)}</span></span>
+          <span class="num" style="font-size:15px;font-weight:600">${fmt(e.kcal)}</span></button>`; }).join('')}
+        <div class="rowc" style="gap:4px;margin:4px 0 0 -10px"><button type="button" class="btn" data-a="openSheet" data-id="${g.id}" style="font-size:14px;display:flex;align-items:center;gap:6px">${svg(I.plus, 15, 2.4)}Add food</button><button type="button" class="btn" data-a="grpRename" data-id="${g.id}" style="font-size:14px;color:var(--muted);font-weight:500">Rename</button></div>
+      </div>` : ''}
+    </div></div>`;
+}
 function renderDay(k, isToday) {
   const tg = targetFor(k), tot = dayTotals(k);
   const left = tg.kcal - tot.kcal, over = left < 0;
-  const entries = S.log.filter((e) => keyOf(e.ts) === k).sort((a, b) => a.ts - b.ts);
-  const maxK = Math.max(0, ...entries.map((e) => e.kcal));
+  const groups = dayGroups(k);
+  const maxK = Math.max(0, ...groups.map((g) => g.kcal));
   const fillA = over ? tg.kcal / tot.kcal * 100 : Math.min(100, tot.kcal / (tg.kcal || 1) * 100);
   const head = isToday
     ? `<div class="stack" style="gap:14px">${titleLine()}<div class="between" style="align-items:flex-end"><div class="stack" style="gap:4px"><span class="muted" style="font-size:13px;font-weight:500">${dLabel(k)}</span><h1 class="h1">Today</h1></div>${periodPill(tg)}</div></div>`
     : `<div class="stack" style="gap:10px"><div style="margin:0 -10px"><button class="btn" type="button" data-a="dayBack" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}History</button></div>
        <div class="between" style="align-items:flex-end"><div class="stack" style="gap:4px"><span class="muted" style="font-size:13px;font-weight:500">${k > todayKey() ? 'Upcoming day' : 'Past day · editable'}</span><h1 class="h1" style="font-size:28px">${dLabel(k)}</h1></div>${periodPill(tg)}</div></div>`;
+  const ex = ui.tAdv ? dayExtras(k) : null;
   return `<div class="stack" style="gap:26px">${head}
-    <section aria-label="Calories" class="stack" style="gap:12px">
+    <button type="button" data-a="tAdv" aria-expanded="${ui.tAdv}" aria-label="Nutrition summary, tap for ${ui.tAdv ? 'less' : 'more'} detail" style="border:0;background:none;padding:0;text-align:left;width:100%;display:flex;flex-direction:column;gap:26px">
+    <section aria-label="Calories" class="stack" style="gap:12px;width:100%">
       <div class="between" style="align-items:baseline"><div class="rowc" style="gap:8px;align-items:baseline"><span class="num" style="font-size:52px;font-weight:600;letter-spacing:-.03em;line-height:1">${fmt(Math.abs(left))}</span><span class="muted" style="font-size:15px">kcal ${over ? 'over' : 'left'}</span></div>
       <span class="muted num" style="font-size:13px">${fmt(tot.kcal)} / ${fmt(tg.kcal)}</span></div>
       <div class="track" style="height:10px"><span style="width:${fillA}%;background:var(--accent)"></span>${over ? `<span style="width:${100 - fillA}%;background:var(--bulk)"></span>` : ''}</div>
     </section>
-    <section aria-label="Macros">${macroBars(tot, tg)}</section>
+    <section aria-label="Macros" class="stack" style="gap:12px;width:100%">${macroBars(tot, tg)}
+      ${ex ? `<div class="stack" style="gap:10px;padding-top:14px;margin-top:2px;border-top:1px solid var(--line)">${extrasGrid(ex)}${ex.none ? `<span class="muted" style="font-size:11px">${ex.none} of ${ex.n} ${ex.n === 1 ? 'entry has' : 'entries have'} no details yet · add them in Foods</span>` : ''}</div>` : ''}
+      <span class="muted rowc" style="justify-content:center;gap:4px;font-size:11px;font-weight:500;margin-top:-4px">${ui.tAdv ? 'Less' : 'Details'}${chevron(ui.tAdv)}</span>
+    </section></button>
     ${isToday ? backupNudge() : ''}
     <section aria-label="Timeline" class="stack" style="gap:10px">
       <h2 class="sec" style="font-size:13px">Timeline</h2>
-      ${entries.length ? `<div class="stack">${entries.map((e) => {
-        const f = food(e.foodId); const ic = f && f.fav ? f.icon : null;
-        return `<button type="button" data-a="editEntry" data-id="${e.id}" style="display:flex;gap:16px;border:0;background:none;padding:0;text-align:left;width:100%">
-          <div style="width:10px;display:flex;flex-direction:column;align-items:center;align-self:stretch"><span style="width:9px;height:9px;border-radius:999px;border:2px solid var(--accent);margin-top:4px"></span><span style="flex:1;width:1px;background:var(--line)"></span></div>
-          <div class="stack" style="flex:1;gap:6px;padding-bottom:16px;min-width:0">
-            <div class="between" style="align-items:baseline"><span class="muted num" style="font-size:12px">${hm(e.ts)} · ${e.pu ? esc(countLabel(e.pu, e.pn)) + ' · ' : ''}${fmt(e.g)} ${unitOf(f)}</span><span class="num" style="font-size:16px;font-weight:600">${fmt(e.kcal)}</span></div>
-            <div class="between" style="align-items:baseline"><span class="rowc" style="gap:8px;font-size:16px;font-weight:500;min-width:0">${icon(ic, 18, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span></span><span class="muted num" style="font-size:12px;white-space:nowrap">${tg.kcal ? Math.round(e.kcal / tg.kcal * 100) : 0}% of day</span></div>
-            ${splitBar(e, maxK)}
-          </div></button>`;
+      ${groups.length ? `<div class="stack">${groups.map((g) => {
+        if (g.entries.length > 1) return groupRow(g, tg, maxK);
+        const e = g.entries[0]; const f = food(e.foodId);
+        return entryRow(e, tg, maxK, f && f.fav ? f.icon : null);
       }).join('')}</div>` : `<div class="empty">Nothing logged ${isToday ? 'yet' : 'on this day'}.<br>Tap <b style="color:var(--accent)">+</b> to add food.</div>`}
     </section></div>`;
 }
@@ -457,12 +540,30 @@ function renderSheet() {
     <div class="grab"></div>
     <div class="stack" style="gap:14px;padding:10px 20px 6px">
       ${sh.out ? `<span class="muted" style="font-size:12px;margin-bottom:-8px">Eating out · nothing is taken from Stash</span>` : ''}
-      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button></div>
+      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}${!sh.pick && sh.n ? `<button type="button" class="btn" data-a="closeSheet" style="margin-right:-10px;font-size:16px">Done</button>` : `<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button>`}</div>
+      ${sh.pick ? '' : targetChips()}
       <div class="seg" role="tablist" style="grid-template-columns:repeat(3,1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
       ${sh.tab === 'search' ? `<label class="search">${svg(I.search, 18)}<input id="sheetQ" type="search" placeholder="Search foods" value="${esc(sh.q || '')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
     </div>
     <div class="scroll" data-scroll="sheet" style="padding:0 20px calc(var(--sb) + 30px)"><div id="sheetBody">${sh.tab === 'search' ? searchResults() : sheetList()}</div></div>
   </div></div>`;
+}
+
+/* where Quick add puts foods: the sheet's own new meal, or an earlier meal picked from the chips */
+function sheetGrp() {
+  const sh = ui.sheet;
+  if (sh.tgt) { const g = groupOf(sh.tgt); if (g) return { gid: g.id, gn: g.custom, ts: g.ts }; sh.tgt = null; }
+  const mine = groupOf(sh.gid);
+  return { gid: sh.gid, gn: sh.gn || (mine && mine.custom) || null, ts: mine ? mine.ts : null };
+}
+const groupLabel = (g) => (g.entries.length === 1 && !g.custom ? g.entries[0].name : g.name);
+function targetChips() {
+  const sh = ui.sheet; const gs = dayGroups(sh.date); const mine = gs.find((g) => g.id === sh.gid);
+  const chips = [[ '', mine ? groupLabel(mine) + ' · ' + mine.entries.length + (mine.entries.length === 1 ? ' item' : ' items') : 'New · ' + (sh.gn || autoName(tsFor(sh.date))), !sh.tgt ]];
+  gs.filter((g) => g.id !== sh.gid).reverse().forEach((g) => chips.push([g.id, groupLabel(g) + ' · ' + hm(g.ts), sh.tgt === g.id]));
+  return `<div class="rowc" role="radiogroup" aria-label="Add to meal" style="gap:6px;overflow-x:auto;margin:-2px -20px 0;padding:0 20px;scrollbar-width:none">
+    <span class="muted" style="font-size:12px;font-weight:500;white-space:nowrap;margin-right:2px">Add to</span>
+    ${chips.map(([id, l, on]) => `<button type="button" role="radio" aria-checked="${on}" class="chip ${on ? 'on' : ''}" data-a="sheetTgt" data-id="${id}" style="height:32px;padding:0 12px;white-space:nowrap;flex:none;color:${on ? 'var(--text)' : 'var(--muted)'}">${esc(l)}</button>`).join('')}</div>`;
 }
 
 /* ---------- Portion ---------- */
@@ -516,6 +617,38 @@ function renderNewPortion() {
       </div>
       <div class="rowc" style="gap:6px;flex-wrap:wrap">${sugg.map((x) => `<button type="button" class="chip" style="height:32px;padding:0 12px" data-a="npSugg" data-k="${x}">${x}</button>`).join('')}</div>
       <button type="button" class="btn-primary" data-a="saveNewPortion">Save portion</button>
+    </div></div>`;
+}
+
+/* ---------- Rename a meal on the timeline ---------- */
+function renderRename() {
+  const r = ui.rename;
+  const sugg = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Pre-workout', 'Post-workout'];
+  return `<div class="layer" style="z-index:70"><div class="backdrop" data-a="rnClose"></div>
+    <div role="dialog" aria-label="Rename meal" style="position:absolute;left:0;right:0;bottom:0;padding:10px 20px calc(var(--sb) + 24px);border-radius:20px 20px 0 0;background:var(--surface);display:flex;flex-direction:column;gap:16px">
+      <div class="grab" style="margin-top:0"></div>
+      <h2 style="margin:0;font-size:20px;font-weight:700">Rename meal</h2>
+      <label class="field" style="background:var(--sheet)"><span>Name</span><input id="rnIn" value="${esc(r.val)}" placeholder="${esc(r.auto)}" autocomplete="off" enterkeyhint="done" aria-label="Meal name"></label>
+      <div class="rowc" style="gap:6px;flex-wrap:wrap">${sugg.map((x) => `<button type="button" class="chip" style="height:32px;padding:0 12px" data-a="rnSugg" data-k="${x}">${x}</button>`).join('')}</div>
+      <span class="muted" style="font-size:12px;margin-top:-6px">Leave empty to name it by time of day.</span>
+      <button type="button" class="btn-primary" data-a="rnSave">Save</button>
+    </div></div>`;
+}
+
+/* ---------- Weight ---------- */
+function renderWeight() {
+  const w = ui.wt; const last = lastWeight();
+  const shown = w.val || (last ? last.kg.toFixed(1) : '0');
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+  return `<div class="layer" style="z-index:60"><div class="backdrop" data-a="closeWeight"></div>
+    <div role="dialog" aria-label="Log weight" style="position:absolute;left:0;right:0;bottom:0;padding:10px 20px calc(var(--sb) + 20px);border-radius:20px 20px 0 0;background:var(--surface);display:flex;flex-direction:column;gap:18px">
+      <div class="grab" style="margin-top:0"></div>
+      <div class="between"><h2 style="margin:0;font-size:20px;font-weight:700">Today's weight</h2><button type="button" class="iconbtn" aria-label="Close" data-a="closeWeight" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button></div>
+      <div class="stack" style="align-items:center;gap:6px">
+        <div class="rowc" style="align-items:baseline;gap:8px"><span class="num" style="font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1;color:${w.val ? 'var(--text)' : 'var(--muted)'}">${esc(shown)}</span><span class="muted" style="font-size:20px">kg</span></div>
+        <span class="muted" style="font-size:13px">${last ? 'Last: ' + last.kg.toFixed(1) + ' kg · ' + (last.d === todayKey() ? 'today' : dShort(last.d)) : 'First weigh-in'}</span></div>
+      <div class="keypad">${keys.map((k) => `<button type="button" data-a="wkey" data-k="${k}" aria-label="${k === '⌫' ? 'Delete' : k === '.' ? 'Decimal point' : k}" style="background:var(--sheet)">${k}</button>`).join('')}</div>
+      <button type="button" class="btn-primary" data-a="saveWeight" style="background:var(--weight);color:#2A1F00">Save weight</button>
     </div></div>`;
 }
 
@@ -587,7 +720,11 @@ function renderFoodEdit() {
         <div class="seg" style="grid-template-columns:1fr 1fr;padding:2px;width:96px"><button type="button" style="height:28px" class="${u === 'g' ? 'on' : ''}" data-a="draftUnit" data-k="g">g</button><button type="button" style="height:28px" class="${u === 'ml' ? 'on' : ''}" data-a="draftUnit" data-k="ml">ml</button></div></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
           ${[['kcal', 'kcal100', '--accent'], ['Protein', 'p100', '--p'], ['Carbs', 'c100', '--c'], ['Fat', 'f100', '--f']].map(([l, k, c]) => `<label class="field" style="padding:10px"><span><span class="dot" style="width:6px;height:6px;background:var(${c})"></span>${l}</span><input data-d="${k}" value="${d[k] === '' || d[k] == null ? '' : esc(d[k])}" inputmode="decimal" placeholder="${k === 'kcal100' ? 'auto' : '0'}" aria-label="${l} per 100 ${u}"></label>`).join('')}
-        </div><span class="muted" style="font-size:12px">Leave kcal empty to calculate it from the macros.</span></section>
+        </div><span class="muted" style="font-size:12px">Leave kcal empty to calculate it from the macros.</span>
+        <h2 class="sec" style="margin-top:8px">Details per 100 ${u} · optional</h2>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          ${EXK.map(([x, l]) => { const k = x + '100'; return `<label class="field" style="padding:10px"><span>${l}</span><input data-d="${k}" value="${hasV(d[k]) ? esc(d[k]) : ''}" inputmode="decimal" placeholder="–" aria-label="${l} per 100 ${u}"></label>`; }).join('')}
+        </div><span class="muted" style="font-size:12px">Saturated fat is part of fat, sugar part of carbs. Shown under Details on Today and in History.</span></section>
       <section class="stack" style="gap:4px"><h2 class="sec" style="margin-bottom:4px">Saved portions</h2>
         ${d.portions.map((p, i) => `<div class="rowc" style="gap:10px;min-height:52px;border-bottom:1px solid #1B2232"><input data-p="${i}" data-pk="label" value="${esc(p.label)}" placeholder="e.g. 1 bowl" aria-label="Portion name" style="flex:1;min-width:0;border:0;outline:none;background:none;padding:0;font-size:15px"><input data-p="${i}" data-pk="g" value="${p.g || ''}" inputmode="decimal" placeholder="0" aria-label="Portion amount" style="width:60px;border:0;outline:none;background:var(--surface);border-radius:8px;padding:6px 8px;text-align:right;font-size:15px"><span class="muted" style="font-size:13px">${u}</span><button type="button" class="iconbtn" aria-label="Remove portion" data-a="rmPortion" data-i="${i}" style="color:var(--muted);width:36px">${svg(I.x, 16)}</button></div>`).join('')}
         <button type="button" class="btn" data-a="addPortion" style="text-align:left;padding:0">+ Add portion</button></section>
@@ -625,13 +762,14 @@ function renderHistory() {
   const goal = P ? GOALS[P.goal] : GOALS.maintain;
   const types = P ? (P.goal === 'cut' ? ['D', 'M'] : P.goal === 'bulk' ? ['S', 'M'] : ['M']) : ['M'];
   // stats over past days with entries
-  let onT = 0, logged = 0; const agg = {}; const mac = { p: 0, c: 0, f: 0, tp: 0, tc: 0, tf: 0, n: 0 };
+  let onT = 0, logged = 0; const agg = {}; const mac = { p: 0, c: 0, f: 0, tp: 0, tc: 0, tf: 0, n: 0 }; const exs = { sf: 0, su: 0, fi: 0, sa: 0 };
   for (let k = start; k < t; k = addDays(k, 1)) {
     const tot = dayTotals(k); if (!tot.n) continue;
     const tg = targetFor(k); logged++;
     if (Math.abs(tot.kcal - tg.kcal) <= tg.kcal * 0.05) onT++;
     (agg[tg.type] = agg[tg.type] || { s: 0, n: 0, t: tg.kcal }); agg[tg.type].s += tot.kcal; agg[tg.type].n++;
     mac.p += tot.p; mac.c += tot.c; mac.f += tot.f; mac.tp += tg.p; mac.tc += tg.c; mac.tf += tg.f; mac.n++;
+    if (ui.hAdv) { const x = dayExtras(k); EXK.forEach(([q]) => { exs[q] += x[q]; }); }
   }
   const weekNo = Math.floor(daysBetween(start, t) / 7) + 1;
   const totalWeeks = P && P.end ? Math.ceil((daysBetween(P.start, P.end) + 1) / 7) : null;
@@ -670,12 +808,14 @@ function renderHistory() {
   }
   const hasMarker = P && P.goal !== 'maintain';
   return `<div class="stack" style="gap:18px"><div class="stack" style="gap:14px">${titleLine()}<h1 class="h1">History</h1></div>
-    <section class="card stack" aria-label="Current period" style="gap:14px;border-radius:18px">
+    <button type="button" class="card stack" data-a="hAdv" aria-expanded="${ui.hAdv}" aria-label="Current period summary, tap for ${ui.hAdv ? 'less' : 'more'} detail" style="gap:14px;border-radius:18px;border:0;text-align:left;width:100%">
       <div class="between" style="align-items:flex-start"><div class="stack" style="gap:3px"><span class="rowc" style="gap:8px;font-size:17px;font-weight:600"><span class="dot" style="width:10px;height:10px;background:${goal.color}"></span>${P ? goal.name : 'No active period'}</span><span class="muted" style="font-size:12px">${P ? 'Since ' + dShort(start) + ' · week ' + weekNo + (totalWeeks ? ' of ' + totalWeeks : '') : 'Last 4 weeks · plan a period in Settings'}</span></div>
         <div class="stack" style="align-items:flex-end;gap:3px"><span class="num" style="font-size:17px;font-weight:600">${onT}<span class="muted" style="font-size:12px;font-weight:400"> / ${logged}</span></span><span class="muted" style="font-size:12px">days on target</span></div></div>
       <div class="rowc" style="gap:10px;align-items:flex-start">${avgCells}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${macAvg}</div>
-    </section>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%">${macAvg}</div>
+      ${ui.hAdv ? histAdv(start, t, mac.n ? Object.fromEntries(EXK.map(([q]) => [q, exs[q] / mac.n])) : null) : ''}
+      <span class="muted rowc" style="justify-content:center;gap:4px;font-size:11px;font-weight:500;width:100%;margin-top:-4px">${ui.hAdv ? 'Less' : 'Details and weight'}${chevron(ui.hAdv)}</span>
+    </button>
     <section class="stack" aria-label="Calendar" style="gap:6px">
       <div class="cal" style="font-size:11px;text-align:center;color:var(--muted)">${WD.map((w) => `<span>${w}</span>`).join('')}</div>
       ${weeks}
@@ -685,6 +825,22 @@ function renderHistory() {
         ${hasMarker ? `<span class="rowc" style="gap:6px"><b style="font-size:9px;color:#C9D1DE">M</b>Maintenance day</span>` : ''}
       </div>
     </section></div>`;
+}
+
+function histAdv(from, to, avg) {
+  const tr = weightTrend(from, to); const ws = tr.ws; const last = ws[ws.length - 1];
+  const sl = tr.slope; const slTxt = sl == null ? '—' : (sl > 0.005 ? '+' : sl < -0.005 ? '−' : '±') + Math.abs(sl).toFixed(2);
+  const ch = ws.length > 1 ? last.kg - ws[0].kg : null;
+  return `<div class="stack" style="gap:16px;width:100%;padding-top:14px;border-top:1px solid #232B3D">
+    <div class="stack" style="gap:10px"><span class="muted" style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Avg per logged day</span>${extrasGrid(avg)}</div>
+    <div class="stack" style="gap:10px"><span class="rowc muted" style="gap:6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase"><span class="dot" style="background:var(--weight)"></span>Weight</span>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="stack" style="gap:4px"><span class="muted" style="font-size:11px">Avg change</span><span class="num" style="font-size:17px;font-weight:600">${slTxt}<span class="muted" style="font-size:12px;font-weight:400"> kg/wk</span></span></div>
+        <div class="stack" style="gap:4px"><span class="muted" style="font-size:11px">Since start</span><span class="num" style="font-size:17px;font-weight:600">${ch == null ? '—' : (ch > 0.04 ? '+' : ch < -0.04 ? '−' : '±') + Math.abs(ch).toFixed(1)}<span class="muted" style="font-size:12px;font-weight:400"> kg</span></span></div>
+        <div class="stack" style="gap:4px"><span class="muted" style="font-size:11px">Latest</span><span class="num" style="font-size:17px;font-weight:600">${last ? last.kg.toFixed(1) : '—'}<span class="muted" style="font-size:12px;font-weight:400"> kg</span></span></div>
+      </div>
+      <span class="muted" style="font-size:11px">${ws.length < 2 ? 'Log your weight on 2 or more days to see the trend.' : ws.length + ' weigh-ins this period · trend line through all of them'}</span>
+    </div></div>`;
 }
 
 /* ---------- Settings ---------- */
@@ -1019,8 +1175,11 @@ function render() {
     else if (ui.tab === 'history') main = renderHistory();
     else main = renderSettings();
     const showFab = ui.tab === 'today' || (ui.tab === 'history' && ui.day);
-    html = `<div class="main" data-scroll="main-${ui.tab}${ui.day ? '-' + ui.day : ''}">${main}</div>${tabbar()}`;
-    if (showFab) html += `<button type="button" class="fab" aria-label="Log food" data-a="openSheet">${svg(I.plus, 26, 2.4)}</button>`;
+    const needW = ui.tab === 'today' && !weightOn(todayKey());
+    html = `<div class="main" data-scroll="main-${ui.tab}${ui.day ? '-' + ui.day : ''}" style="${needW ? 'padding-bottom:200px' : ''}">${main}</div>${tabbar()}`;
+    if (showFab) html += `<button type="button" class="fab" aria-label="Log food" data-a="openSheet" style="${needW ? 'bottom:calc(var(--sb) + 148px)' : ''}">${svg(I.plus, 26, 2.4)}</button>`;
+    if (needW) html += `<button type="button" class="wbtn" data-a="openWeight">${svg(I.scale, 20, 2)}Log weight for today!</button>`;
+    ui.tall = needW;
   }
   if (ui.edit) html += ui.edit.type === 'food' ? renderFoodEdit() : ui.edit.type === 'meal' ? renderMealEdit() : ui.edit.type === 'stash' ? renderStashEdit() : renderPeriodEdit();
   if (ui.mealPick) html += renderMealPick();
@@ -1028,11 +1187,13 @@ function render() {
   if (ui.sheet) html += renderSheet();
   if (ui.portion) html += renderPortion();
   if (ui.newPortion) html += renderNewPortion();
+  if (ui.rename) html += renderRename();
+  if (ui.wt) html += renderWeight();
   if (ui.qty) html += renderQty();
   if (ui.appMenu) html += renderAppMenu();
   if (ui.iconPick) html += renderIconPick();
   if (ui.dialog) html += renderDialog();
-  if (ui.toast) html += `<div class="toast" role="status"><span>${esc(ui.toast.text)}</span>${ui.toast.undoIds || ui.toast.undoFn ? `<button type="button" class="btn" data-a="undo" style="font-size:14px">Undo</button>` : ''}</div>`;
+  if (ui.toast) html += `<div class="toast" role="status" style="${ui.tall && ui.app === 'cal' ? 'bottom:calc(var(--sb) + 214px)' : ''}"><span>${esc(ui.toast.text)}</span>${ui.toast.undoIds || ui.toast.undoFn ? `<button type="button" class="btn" data-a="undo" style="font-size:14px">Undo</button>` : ''}</div>`;
   document.getElementById('app').innerHTML = html;
   document.querySelectorAll('[data-scroll]').forEach((el) => { if (scrolls[el.dataset.scroll]) el.scrollTop = scrolls[el.dataset.scroll]; });
 }
@@ -1049,8 +1210,8 @@ function syncDraft() {
 }
 function openFoodEdit(f, opts = {}) {
   ui.edit = { type: 'food', id: f ? f.id : null, z: opts.z, from: opts.from,
-    draft: f ? JSON.parse(JSON.stringify({ name: f.name, brand: f.brand || '', unit: f.unit || 'g', kcal100: f.kcal100, p100: f.p100, c100: f.c100, f100: f.f100, portions: f.portions, fav: !!f.fav, icon: f.icon || null }))
-      : { name: opts.name || '', brand: '', unit: 'g', kcal100: '', p100: '', c100: '', f100: '', portions: [], fav: false, icon: null } };
+    draft: f ? JSON.parse(JSON.stringify({ name: f.name, brand: f.brand || '', unit: f.unit || 'g', kcal100: f.kcal100, p100: f.p100, c100: f.c100, f100: f.f100, sf100: f.sf100, su100: f.su100, fi100: f.fi100, sa100: f.sa100, portions: f.portions, fav: !!f.fav, icon: f.icon || null }))
+      : { name: opts.name || '', brand: '', unit: 'g', kcal100: '', p100: '', c100: '', f100: '', sf100: '', su100: '', fi100: '', sa100: '', portions: [], fav: false, icon: null } };
 }
 function openPortion(f, opts = {}) {
   const date = opts.date || (ui.sheet ? ui.sheet.date : todayKey());
@@ -1058,7 +1219,8 @@ function openPortion(f, opts = {}) {
   if (opts.grams != null) { const p = portionOf(f, opts.pu); if (p && opts.pn > 0) { unit = p.label; val = fmtN(opts.pn).replace(/,/g, ''); } else val = String(Math.round(opts.grams * 10) / 10); }
   else { const d = defaultPortion(f); if (d.pu) { unit = d.pu.label; val = String(d.pu.n); } else val = String(Math.round(d.g * 10) / 10); }
   const take = opts.logId ? !!opts.took : !(ui.sheet && ui.sheet.out);
-  ui.portion = { foodId: f.id, unit, val, fresh: true, date, ts: opts.ts || tsFor(date), logId: opts.logId || null, take };
+  const gts = !opts.logId && ui.sheet && !ui.sheet.pick ? sheetGrp().ts : null;
+  ui.portion = { foodId: f.id, unit, val, fresh: true, date, ts: opts.ts || gts || tsFor(date), logId: opts.logId || null, take };
 }
 
 /* ---------- Open Food Facts ---------- */
@@ -1085,7 +1247,7 @@ function offSearch(q) {
         const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : null);
         const qty = p.quantity || '';
         return { code: p.code, name: (p.product_name_de || p.product_name || p.product_name_en || '').trim(), brand: (p.brands || '').split(',')[0].trim(), qty, serving: p.serving_size || '',
-          unit: /\d\s*(ml|l|cl)\b/i.test(qty) ? 'ml' : 'g', kcal100: kcal, p100: n.proteins_100g, c100: n.carbohydrates_100g, f100: n.fat_100g };
+          unit: /\d\s*(ml|l|cl)\b/i.test(qty) ? 'ml' : 'g', kcal100: kcal, p100: n.proteins_100g, c100: n.carbohydrates_100g, f100: n.fat_100g, sf100: n['saturated-fat_100g'], su100: n.sugars_100g, fi100: n.fiber_100g, sa100: n.salt_100g };
       }).filter((p) => p.name && p.kcal100 != null && isFinite(p.kcal100));
       ui.off = { q, state: 'done', items };
     } catch (e) { if (seq === offSeq) ui.off = { q, state: 'error', items: [] }; }
@@ -1098,17 +1260,51 @@ const A = {
   tab(el) { ui.tab = el.dataset.k; ui.day = null; },
   dayBack() { ui.day = null; },
   openDay(el) { const k = el.dataset.k; if (k === todayKey()) { ui.tab = 'today'; ui.day = null; } else ui.day = k; },
-  openSheet() { ui.sheet = { tab: 'recent', q: '', date: ui.tab === 'history' && ui.day ? ui.day : todayKey() }; },
+  openSheet(el) { ui.sheet = { tab: 'recent', q: '', date: ui.tab === 'history' && ui.day ? ui.day : todayKey(), gid: uid(), n: 0, tgt: el && el.dataset.id ? el.dataset.id : null }; },
+  sheetTgt(el) { ui.sheet.tgt = el.dataset.id || null; },
+  grp(el) { const id = el.dataset.id; if (ui.open[id]) delete ui.open[id]; else ui.open[id] = true; },
+  tAdv() { ui.tAdv = !ui.tAdv; },
+  hAdv() { ui.hAdv = !ui.hAdv; },
+  grpRename(el) { const g = groupOf(el.dataset.id); ui.rename = { gid: g.id, val: g.custom || '', auto: autoName(g.ts) }; setTimeout(() => { const i = document.getElementById('rnIn'); if (i) { i.focus(); i.select(); } }, 30); },
+  rnSugg(el) { document.getElementById('rnIn').value = el.dataset.k; A.rnSave(); },
+  rnSave() {
+    const v = document.getElementById('rnIn').value.trim(); const r = ui.rename;
+    S.log.forEach((e) => { if (e.gid === r.gid) { if (v) e.gn = v; else delete e.gn; } });
+    save(); ui.rename = null;
+  },
+  rnClose() { ui.rename = null; },
+  openWeight() { ui.wt = { val: '', fresh: true }; },
+  closeWeight() { ui.wt = null; },
+  wkey(el) {
+    const k = el.dataset.k; const w = ui.wt; let v = w.fresh ? '' : w.val;
+    if (k === '⌫') v = v.slice(0, -1);
+    else if (k === '.') { if (!v.includes('.')) v = (v || '0') + '.'; }
+    else { const [a, b] = v.split('.'); if (b != null ? b.length < 1 : a.length < 3) v = v === '0' ? k : v + k; }
+    w.val = v; w.fresh = false;
+  },
+  saveWeight() {
+    const kg = num(ui.wt.val || (lastWeight() ? lastWeight().kg : ''));
+    if (!(kg >= 20 && kg <= 400)) { info('Enter your weight in kg, e.g. 82.4.'); return; }
+    const t = todayKey(); const prev = weightOn(t) ? { ...weightOn(t) } : null;
+    S.weights = S.weights.filter((w) => w.d !== t); S.weights.push({ d: t, kg: r1(kg), ts: Date.now() }); save(); ui.wt = null;
+    toast('Weight logged · ' + r1(kg).toFixed(1) + ' kg', null, () => { S.weights = S.weights.filter((w) => w.d !== t); if (prev) S.weights.push(prev); });
+  },
   closeSheet() { ui.sheet = null; },
   sheetTab(el) { ui.sheet.tab = el.dataset.k; if (el.dataset.k === 'search') setTimeout(() => { const i = document.getElementById('sheetQ'); if (i) i.focus(); }, 30); },
   openPortion(el) { openPortion(food(el.dataset.id)); },
   quickFood(el) {
-    const f = food(el.dataset.id); const d = defaultPortion(f); const e = logFood(f, d.g, tsFor(ui.sheet.date), d.pu, ui.sheet.out); save();
+    const f = food(el.dataset.id); const d = defaultPortion(f); const G = sheetGrp(); const e = logFood(f, d.g, G.ts || tsFor(ui.sheet.date), d.pu, ui.sheet.out, G); ui.sheet.n++; save();
     toast(loggedText(f.name, e.kcal, [e]), [e.id]);
   },
   quickMeal(el) {
     const m = meal(el.dataset.id); if (!m.items.length) return;
-    const ids = logMeal(m, tsFor(ui.sheet ? ui.sheet.date : todayKey()), !!(ui.sheet && ui.sheet.out)); save();
+    let ids;
+    if (ui.sheet) {
+      const sh = ui.sheet; const G = sheetGrp();
+      if (!sh.tgt && !groupOf(sh.gid) && !sh.gn) { sh.gn = m.name; G.gn = m.name; } // an empty new meal takes the saved meal's name
+      ids = logMeal(m, G.ts || tsFor(sh.date), !!sh.out, G); sh.n++;
+    } else ids = logMeal(m, tsFor(todayKey()), false);
+    save();
     toast(loggedText(m.name, mealNut(m).kcal, S.log.filter((x) => ids.includes(x.id))), ids);
   },
   pickAdd(el) {
@@ -1123,12 +1319,13 @@ const A = {
       const portions = []; const pk = parseQty(p.qty); const sv = parseQty(p.serving);
       if (pk) portions.push({ label: '1 pack', g: pk }); if (sv && sv !== pk) portions.push({ label: '1 serving', g: sv });
       f = { id: uid(), code: p.code, source: 'off', name: p.name, brand: p.brand, unit: p.unit, kcal100: Math.round(p.kcal100), p100: r1(p.p100 || 0), c100: r1(p.c100 || 0), f100: r1(p.f100 || 0), portions, fav: false, icon: null, uses: 0 };
+      EXK.forEach(([x]) => { const v = p[x + '100']; f[x + '100'] = hasV(v) ? Math.round(+v * 100) / 100 : null; });
       S.foods.push(f); save();
     }
     if (ui.sheet.pick === 'stash') { ui.sheet = null; openStashEdit(f); }
     else if (ui.sheet.pick) { syncDraft(); ui.edit.draft.items.push({ foodId: f.id, g: 100 }); ui.sheet = null; } else openPortion(f);
   },
-  createFood() { const q = ui.sheet.q || ''; const pick = ui.sheet.pick; const date = ui.sheet.date; ui.sheet = null; if (pick === 'meal') { ui.pendingPick = ui.edit; } openFoodEdit(null, { name: q, from: pick === 'stash' ? 'stash' : pick ? 'pick' : 'sheet', date, z: 45 }); ui.edit.date = date; },
+  createFood() { const q = ui.sheet.q || ''; const pick = ui.sheet.pick; const date = ui.sheet.date; if (pick) ui.sheet = null; if (pick === 'meal') { ui.pendingPick = ui.edit; } openFoodEdit(null, { name: q, from: pick === 'stash' ? 'stash' : pick ? 'pick' : 'sheet', date, z: 45 }); ui.edit.date = date; },
   otherItem() { const q = ui.sheet.q || ''; ui.sheet = null; openStashEdit(null, { name: q }); },
   closePortion() { ui.portion = null; },
   chip(el) { ui.portion.val = el.dataset.v; ui.portion.fresh = true; },
@@ -1168,10 +1365,12 @@ const A = {
       const e = S.log.find((x) => x.id === pt.logId); const n = nut(f, g);
       if (e.st) { giveStash(e.st); e.st = null; }
       e.st = pt.take ? takeStash(f, g) : null;
+      EXK.forEach(([x]) => { if (n[x] != null) e[x] = n[x]; else delete e[x]; });
       Object.assign(e, { g, ts: pt.ts, kcal: n.kcal, p: n.p, c: n.c, f: n.f, name: f.name, pu: pu ? pu.label : undefined, pn: pu ? pu.n : undefined });
       f.lastGrams = g; f.lastUnit = pu ? pu.label : null; f.lastCount = pu ? pu.n : null; save(); ui.portion = null; toast('Entry updated');
     } else {
-      const e = logFood(f, g, pt.ts, pu, !pt.take); save(); ui.portion = null; ui.sheet = null; toast(loggedText(f.name, e.kcal, [e]), [e.id]);
+      const G = ui.sheet && !ui.sheet.pick ? sheetGrp() : null;
+      const e = logFood(f, g, pt.ts, pu, !pt.take, G); if (G) ui.sheet.n++; save(); ui.portion = null; toast(loggedText(f.name, e.kcal, [e]), [e.id]);
     }
   },
   deleteEntry() { const id = ui.portion.logId; const e = S.log.find((x) => x.id === id); giveStash(e.st); S.log = S.log.filter((x) => x.id !== id); save(); ui.portion = null; ui.deleted = e; toast('Entry deleted' + (e.st ? ' · back in Stash' : ''), ['__restore']); },
@@ -1212,6 +1411,7 @@ const A = {
     const p = num(d.p100), c = num(d.c100), fa = num(d.f100);
     const kcal = String(d.kcal100).trim() === '' ? Math.round(p * 4 + c * 4 + fa * 9) : Math.round(num(d.kcal100));
     const vals = { name: d.name.trim(), brand: (d.brand || '').trim(), unit: d.unit, kcal100: kcal, p100: r1(p), c100: r1(c), f100: r1(fa), portions: d.portions.filter((x) => x.label.trim() && num(x.g) > 0).map((x) => ({ label: x.label.trim(), g: num(x.g) })), fav: !!d.fav, icon: d.icon };
+    EXK.forEach(([x]) => { const v = String(d[x + '100'] ?? '').trim(); vals[x + '100'] = v === '' ? null : Math.round(num(v) * 100) / 100; });
     let f;
     if (ui.edit.id) { f = food(ui.edit.id); Object.assign(f, vals); }
     else { f = { id: uid(), source: 'own', uses: 0, ...vals }; S.foods.push(f); }
@@ -1448,6 +1648,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter' && ev.target.id === 'sheetQ') ev.target.blur();
   if (ev.key === 'Enter' && ev.target.id === 'shopQ') { ev.preventDefault(); A.shopAddFree(); render(); }
   if (ev.key === 'Enter' && ev.target.id === 'qtyIn') { ev.preventDefault(); A.qtySave(); render(); }
+  if (ev.key === 'Enter' && ev.target.id === 'rnIn') { ev.preventDefault(); A.rnSave(); render(); }
   if (ev.key === 'Escape' && ui.appMenu) { ui.appMenu = false; render(); }
 });
 
