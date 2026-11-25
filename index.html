@@ -470,7 +470,7 @@ function renderDay(k, isToday) {
     </section>
     <section aria-label="Macros" class="stack" style="gap:12px;width:100%">${macroBars(tot, tg)}
       ${ex ? `<div class="stack" style="gap:10px;padding-top:14px;margin-top:2px;border-top:1px solid var(--line)">${extrasGrid(ex)}${ex.none ? `<span class="muted" style="font-size:11px">${ex.none} of ${ex.n} ${ex.n === 1 ? 'entry has' : 'entries have'} no details yet · add them in Foods</span>` : ''}</div>` : ''}
-      <span class="muted rowc" style="justify-content:center;gap:4px;font-size:11px;font-weight:500;margin-top:-4px">${ui.tAdv ? 'Less' : 'Details'}${chevron(ui.tAdv)}</span>
+      <span class="muted rowc" style="justify-content:center;gap:4px;font-size:11px;font-weight:500;margin-top:2px">${ui.tAdv ? 'Less' : 'Details'}${chevron(ui.tAdv)}</span>
     </section></button>
     ${isToday ? backupNudge() : ''}
     <section aria-label="Timeline" class="stack" style="gap:10px">
