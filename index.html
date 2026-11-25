@@ -570,7 +570,7 @@ function rowFood(f, pick) {
   const dp = defaultPortion(f); const g = dp.g; const n = nut(f, g);
   return `<div class="rowc" style="gap:12px;border-bottom:1px solid #1B2232">
     <button type="button" class="item" style="border:0;flex:1;min-width:0" data-a="${pick ? 'pickAdd' : 'openPortion'}" data-id="${f.id}">
-      <span class="stack" style="flex:1;min-width:0"><span class="nm">${icon(f.icon, 17, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub">${pick ? fmt(g) + ' ' + unitOf(f) : esc(amountLabel(f, g, dp.pu))}${f.brand ? ' · ' + esc(f.brand) : ''}</span></span>
+      <span class="stack" style="flex:1;min-width:0"><span class="nm">${icon(f.icon, 17, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pick ? fmt(g) + ' ' + unitOf(f) : esc(amountLabel(f, g, dp.pu))}${f.brand ? ' · ' + esc(f.brand) : ''}${stashTag(f)}</span></span>
       <span class="num" style="font-size:15px;font-weight:600">${fmt(n.kcal)}</span></button>
     <button type="button" class="plus" aria-label="${pick ? 'Add' : 'Log'} ${esc(f.name)} ${pick ? (ui.sheet && ui.sheet.pick === 'stash' ? 'to Stash' : 'to meal') : 'now'}" data-a="${pick ? 'pickAdd' : 'quickFood'}" data-id="${f.id}">${svg(I.plus, 18, 2.2)}</button></div>`;
 }
@@ -585,7 +585,7 @@ function rowMeal(m) {
 }
 /* "New food" row: at the end of every Quick add tab, not only after searching */
 function createRow() {
-  const sh = ui.sheet; const q = (sh.q || '').trim();
+  const sh = ui.sheet; const q = (sh.q || '').trim(); if (sh.pick === 'merge') return '';
   return `<div style="padding:18px 0 30px"><button type="button" class="btn-soft" data-a="createFood"><span style="width:26px;height:26px;border-radius:999px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center">${svg(I.plus, 14, 3)}</span>${sh.tab === 'search' && q ? 'Not found? Create food' : 'New food'}</button>${sh.pick === 'stash' || sh.pick === 'receipt' ? `<button type="button" class="btn" data-a="otherItem" style="width:100%;margin-top:8px;font-weight:500">Not a food? Add other item${sh.tab === 'search' && q ? ' "' + esc(q) + '"' : ''}</button>` : ''}</div>`;
 }
 /* the meal Quick add is filling right now, so you can see what's already in it */
@@ -610,6 +610,14 @@ function sheetList() {
     items.forEach((x) => { const c = (norm(x.o.name)[0] || '#').toUpperCase(); const l = /[A-Z]/.test(c) ? c : '#'; if (l !== L) { L = l; html += `<div style="padding:12px 0 2px;font-size:13px;font-weight:700;color:var(--accent)">${l}</div>`; } html += x.t === 'f' ? rowFood(x.o, pick) : rowMeal(x.o); });
     return html;
   }
+  if (sh.tab === 'stash') {
+    const its = S.stash.filter((it) => it.foodId && food(it.foodId));
+    if (!its.length) return `<div class="empty">Nothing in your Stash yet.</div>`;
+    let html = '';
+    PLACES.forEach(([k, l]) => { const fs = its.filter((it) => !isOut(it) && placeOf(it) === k).map((it) => food(it.foodId)).sort((a, b) => a.name.localeCompare(b.name)); if (fs.length) html += `<h2 class="sec" style="margin:14px 0 2px">${l}</h2>` + fs.map((f) => rowFood(f, pick)).join(''); });
+    const out = its.filter(isOut).map((it) => food(it.foodId)); if (out.length) html += `<h2 class="sec" style="margin:18px 0 2px">Out</h2>` + out.map((f) => rowFood(f, pick)).join('');
+    return html;
+  }
   if (sh.tab === 'recent') {
     const items = [...S.foods.filter((f) => f.lastUsed).map((f) => ({ t: 'f', o: f, u: f.lastUsed })), ...(pick ? [] : S.meals.filter((m) => m.lastUsed).map((m) => ({ t: 'm', o: m, u: m.lastUsed })))]
       .sort((a, b) => b.u - a.u).slice(0, 30);
@@ -627,10 +635,13 @@ function sheetList() {
 function searchResults() {
   const sh = ui.sheet; const q = (sh.q || '').trim().toLowerCase(); const pick = !!sh.pick;
   if (!q) return `<div class="empty">Type to search your foods${navigator.onLine ? ' and Open Food Facts' : ''}.</div>` + createRow();
-  const mine = S.foods.filter((f) => (f.name + ' ' + (f.brand || '')).toLowerCase().includes(q)).sort((a, b) => (b.uses || 0) - (a.uses || 0));
+  // my foods: name contains the text, or it's the same food under another name (Olivenöl ↔ Olive oil); Stash first
+  const inSt = (f) => { const it = stashOf(f.id); return it && !isOut(it) ? 1 : 0; };
+  const mine = S.foods.filter((f) => (sh.pick !== 'merge' || f.id !== ui.mergeSrc) && ((f.name + ' ' + (f.brand || '')).toLowerCase().includes(q) || (q.length >= 3 && sameFood(q, f.name)))).sort((a, b) => inSt(b) - inSt(a) || (b.uses || 0) - (a.uses || 0));
   const meals = pick ? [] : S.meals.filter((m) => m.name.toLowerCase().includes(q));
   let html = '';
   if (mine.length || meals.length) html += `<h2 class="sec" style="margin:14px 0 2px">My foods</h2>` + meals.map(rowMeal).join('') + mine.map((f) => rowFood(f, pick)).join('');
+  if (sh.pick === 'merge') return html || `<div class="empty">No other food matches.</div>`;
   html += `<h2 class="sec" style="margin:18px 0 2px">Open Food Facts</h2>`;
   const off = ui.off;
   if (!off || off.q !== q || off.state === 'loading') html += `<div class="empty">${q.length < 3 ? 'Type at least 3 letters.' : 'Searching…'}</div>`;
@@ -642,14 +653,14 @@ function searchResults() {
 }
 function renderSheet() {
   const sh = ui.sheet;
-  const tabs = [['az', 'A–Z'], ['recent', 'Recent'], ['favs', 'Favorites'], ['search', 'Search']];
+  const tabs = [...(sh.pick === 'stash' ? [] : [['stash', 'Stash']]), ['az', 'A–Z'], ['recent', 'Recent'], ['favs', sh.pick === 'stash' ? 'Favorites' : 'Favs'], ['search', 'Search']];
   return `<div class="layer" style="z-index:40"><div class="backdrop" data-a="closeSheet"></div><div class="sheet" role="dialog" aria-label="Add food">
     <div class="grab"></div>
     <div class="stack" style="gap:14px;padding:10px 20px 6px">
       ${sh.out ? `<span class="muted" style="font-size:12px;margin-bottom:-8px">Eating out · nothing is taken from Stash</span>` : ''}
-      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick === 'receipt' ? 'Match receipt line' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}<button type="button" class="iconbtn" aria-label="Scan barcode" data-a="scanSheet" style="color:var(--accent);${!sh.pick && S.stash.length ? '' : 'margin-left:auto'}">${svg(I.barcode, 22, 1.9)}</button>${!sh.pick && sh.n ? `<button type="button" class="btn" data-a="closeSheet" style="margin-right:-10px;font-size:16px">Done</button>` : `<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button>`}</div>
+      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick === 'receipt' ? 'Match receipt line' : sh.pick === 'merge' ? 'Merge into…' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}<button type="button" class="iconbtn" aria-label="Scan barcode" data-a="scanSheet" style="color:var(--accent);${!sh.pick && S.stash.length ? '' : 'margin-left:auto'}">${svg(I.barcode, 22, 1.9)}</button>${!sh.pick && sh.n ? `<button type="button" class="btn" data-a="closeSheet" style="margin-right:-10px;font-size:16px">Done</button>` : `<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button>`}</div>
       ${sh.pick ? '' : targetChips()}
-      <div class="seg" role="tablist" style="grid-template-columns:repeat(4,1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
+      <div class="seg" role="tablist" style="grid-template-columns:repeat(${tabs.length},1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
       ${sh.tab === 'search' ? `<label class="search">${svg(I.search, 18)}<input id="sheetQ" type="search" placeholder="Search foods" value="${esc(sh.q || '')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
     </div>
     <div class="scroll" data-scroll="sheet" style="padding:0 20px calc(var(--sb) + 30px)"><div id="sheetBody">${sheetBodyHtml()}</div></div>
@@ -826,6 +837,7 @@ function renderFoodEdit() {
         <button type="button" class="iconbtn" aria-label="${d.fav ? 'Remove from favorites' : 'Add to favorites'}" data-a="draftFav" style="margin-right:-10px;color:${d.fav ? 'var(--accent)' : 'var(--muted)'}"><svg width="24" height="24" viewBox="0 0 24 24" fill="${d.fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">${I.star}</svg></button>
       </div>
       ${ui.edit.review ? `<section class="card stack" aria-label="Check the values" style="gap:4px;background:var(--accent-bg);border:1px solid var(--accent-line);margin-top:-8px"><span style="font-size:14px;font-weight:600">Check against the label</span><span class="muted" style="font-size:12px;line-height:1.45">Filled in from Open Food Facts, where values are added by volunteers and can be a little off or from an older recipe. Fix anything that differs from the pack, then Save.</span></section>` : ''}
+      <div id="dupBox" style="margin-top:-8px">${dupHtml()}</div>
       <div id="sugBox" style="margin-top:-8px">${sugHtml()}</div>
       ${d.code ? `<span class="muted rowc" style="gap:6px;font-size:12px;margin-top:-12px">${svg(I.barcode, 14, 1.9)}Barcode ${esc(d.code)}</span>` : ''}
       <div class="seg" role="radiogroup" aria-label="Food or drink" style="grid-template-columns:1fr 1fr;margin-top:-6px"><button type="button" role="radio" aria-checked="${u === 'g'}" class="${u === 'g' ? 'on' : ''}" data-a="draftUnit" data-k="g">Food · g</button><button type="button" role="radio" aria-checked="${u === 'ml'}" class="${u === 'ml' ? 'on' : ''}" data-a="draftUnit" data-k="ml">Drink · ml</button></div>
@@ -847,7 +859,8 @@ function renderFoodEdit() {
         <button type="button" class="btn" data-a="addPortion" style="text-align:left;padding:0">+ Add portion</button></section>
       ${f ? `<section class="stack" style="gap:10px"><h2 class="sec">Usage</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${[[(f.uses || 0) + '×', 'Logged'], [f.lastUsed ? (keyOf(f.lastUsed) === todayKey() ? 'Today' : dShort(keyOf(f.lastUsed))) : '—', 'Last logged'], [f.lastGrams ? fmt(f.lastGrams) + ' ' + u : '—', 'Usual amount']].map(([v, l]) => `<div class="card" style="padding:12px"><div class="num" style="font-size:18px;font-weight:600">${v}</div><div class="muted" style="font-size:11px;margin-top:4px">${l}</div></div>`).join('')}</div></section>
-      <button type="button" class="btn-danger" data-a="deleteFood">Delete food</button>` : ''}
+      <button type="button" class="btn-soft" data-a="mergeStart" style="height:48px;font-weight:500">Merge into another food…</button>
+      <button type="button" class="btn-danger" data-a="deleteFood" style="margin-top:-10px">Delete food</button>` : ''}
     </div></div></div></div>`;
 }
 
@@ -856,6 +869,14 @@ function alHint(d) {
   const abv = num(d.al100); if (!(abv > 0)) return 'For beer, wine and spirits: enter the % vol from the label. Alcohol has 7 kcal per gram and counts toward your daily kcal.';
   const mk = Math.round(num(d.p100) * 4 + num(d.c100) * 4 + num(d.f100) * 9); const ak = Math.round(alcKcal(abv));
   return fmtN(abv * ALC_D) + ' g alcohol = ' + ak + ' kcal per 100 ml. With the macros that makes ' + (mk + ak) + ' kcal; labels usually already include it.';
+}
+/* meal editor: is this ingredient in Stash, or does Stash hold the same food under another name? */
+function mealStashLine(f, i) {
+  const it = stashOf(f.id);
+  if (it && !isOut(it)) return `<span class="rowc" style="gap:4px;font-size:12px;color:var(--accent-soft)">${svg(I.box, 11, 2)}In Stash · ${esc(amtMain(it))}</span>`;
+  const alt = similarFoods(f.name, f.id).find((x) => { const s = stashOf(x.id); return s && !isOut(s); });
+  if (alt) return `<button type="button" data-a="mealSwap" data-i="${i}" data-id="${alt.id}" style="border:0;background:none;padding:0;text-align:left;font-size:12px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Stash has ${esc(alt.name)} · Use that</button>`;
+  return `<span class="muted" style="font-size:12px">${it ? 'Stash: out' : 'Not in Stash'}</span>`;
 }
 /* ---------- Meal editor ---------- */
 function renderMealEdit() {
@@ -870,7 +891,7 @@ function renderMealEdit() {
         ${[['kcal', fmt(n.kcal), ''], ['Protein', Math.round(n.p) + ' g', '--p'], ['Carbs', Math.round(n.c) + ' g', '--c'], ['Fat', Math.round(n.f) + ' g', '--f']].map(([l, v, c]) => `<div class="stack" style="gap:4px"><span class="muted rowc" style="font-size:11px;gap:6px">${c ? `<span class="dot" style="width:6px;height:6px;background:var(${c})"></span>` : ''}${l}</span><span class="num" style="font-size:18px;font-weight:600">${v}</span></div>`).join('')}
       </div>
       <section class="stack" style="gap:4px"><h2 class="sec" style="margin-bottom:4px">Foods in this meal</h2>
-        ${d.items.map((it, i) => { const f = food(it.foodId); if (!f) return ''; return `<div class="rowc" style="gap:12px;min-height:60px;border-bottom:1px solid #1B2232"><span class="tile" style="width:38px;height:38px">${icon(f.icon, 21)}</span><span style="flex:1;min-width:0;font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><input data-mi="${i}" value="${it.g}" inputmode="decimal" aria-label="Amount of ${esc(f.name)}" style="width:64px;border:0;outline:none;background:var(--surface);border-radius:10px;padding:8px;text-align:right;font-size:15px"><span class="muted" style="font-size:13px">${unitOf(f)}</span><button type="button" class="iconbtn" aria-label="Remove ${esc(f.name)}" data-a="rmMealItem" data-i="${i}" style="color:var(--muted);width:32px">${svg(I.x, 16)}</button></div>`; }).join('')}
+        ${d.items.map((it, i) => { const f = food(it.foodId); if (!f) return ''; return `<div class="rowc" style="gap:12px;min-height:60px;border-bottom:1px solid #1B2232"><span class="tile" style="width:38px;height:38px">${icon(f.icon, 21)}</span><span class="stack" style="flex:1;min-width:0;gap:3px"><span style="font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>${mealStashLine(f, i)}</span><input data-mi="${i}" value="${it.g}" inputmode="decimal" aria-label="Amount of ${esc(f.name)}" style="width:64px;border:0;outline:none;background:var(--surface);border-radius:10px;padding:8px;text-align:right;font-size:15px"><span class="muted" style="font-size:13px">${unitOf(f)}</span><button type="button" class="iconbtn" aria-label="Remove ${esc(f.name)}" data-a="rmMealItem" data-i="${i}" style="color:var(--muted);width:32px">${svg(I.x, 16)}</button></div>`; }).join('')}
         <button type="button" class="btn" data-a="mealAddFood" style="text-align:left;padding:0">+ Add food</button></section>
       ${d.items.length ? `<button type="button" class="btn-primary" data-a="logMealNow">Log meal now</button>` : ''}
       ${isNew ? '' : `<button type="button" class="btn-danger" data-a="deleteMeal">Delete meal</button>`}
@@ -1075,8 +1096,8 @@ function renderAppMenu() {
 
 /* ---------- Stash: shared pieces ---------- */
 function sTile(it, size = 40) {
-  const f = it.foodId && food(it.foodId);
-  const ic = f && f.icon ? icon(f.icon, Math.round(size * 0.52)) : `<span style="font-size:${Math.round(size * 0.4)}px;font-weight:700;color:var(--muted)">${esc((sName(it)[0] || '?').toUpperCase())}</span>`;
+  const f = it.foodId && food(it.foodId); const k = f ? f.icon : it.icon;
+  const ic = k ? icon(k, Math.round(size * 0.52)) : `<span style="font-size:${Math.round(size * 0.4)}px;font-weight:700;color:var(--muted)">${esc((sName(it)[0] || '?').toUpperCase())}</span>`;
   return `<span class="tile" style="width:${size}px;height:${size}px">${ic}</span>`;
 }
 /* the bar under a Stash item: how full the open pack/bottle is (pack size = Stash pack, else the food's first, biggest portion) */
@@ -1124,7 +1145,7 @@ function openStashEdit(f, opts = {}) {
   const shown = view === 'pack' ? src.amount / pack.size : src.amount;
   const minShown = src.min == null ? '' : view === 'pack' ? src.min / pack.size : src.min;
   ui.edit = { type: 'stash', id: it ? it.id : null, z: 30, draft: {
-    foodId: src.foodId, name: src.name || '', unit: src.unit || 'pcs', view, place: it ? placeOf(it) : guessPlace(f, opts.name),
+    foodId: src.foodId, name: src.name || '', icon: src.icon || null, unit: src.unit || 'pcs', view, place: it ? placeOf(it) : guessPlace(f, opts.name),
     amt: it ? String(Math.round(shown * 100) / 100) : (view === 'pack' ? '1' : ''),
     packLabel: pack ? pack.label : '', packSize: pack ? String(pack.size) : '', minStr: minShown === '' ? '' : String(Math.round(minShown * 100) / 100) } };
 }
@@ -1141,7 +1162,7 @@ function renderStashEdit() {
   return `<div class="layer" style="z-index:30"><div class="page">
     <div class="pagehead"><button type="button" class="btn" data-a="closeEdit" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}${isNew ? 'Cancel' : 'Stash'}</button><button type="button" class="btn" data-a="saveStash" style="font-size:16px">${isNew ? 'Add' : 'Save'}</button></div>
     <div class="scroll" data-scroll="edit"><div class="stack" style="gap:22px;padding-top:6px">
-      <div class="rowc" style="gap:14px">${sTile({ foodId: d.foodId, name: d.name || '?' }, 56)}
+      <div class="rowc" style="gap:14px"><button type="button" aria-label="Change icon" data-a="sdIcon" style="position:relative;border:0;background:none;padding:0;flex:none">${sTile({ foodId: d.foodId, name: d.name || '?', icon: d.icon }, 56)}<span style="position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;border-radius:999px;background:var(--line2);color:var(--text);display:flex;align-items:center;justify-content:center">${svg(I.pen, 12, 2.4)}</span></button>
         <div class="stack" style="flex:1;gap:4px;min-width:0">${f ? `<span style="font-size:24px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><span class="muted" style="font-size:13px">Food · ${fmt(f.kcal100)} kcal / 100 ${u} · logging takes it out of Stash</span>`
           : `<input data-d="name" value="${esc(d.name)}" placeholder="Item name" aria-label="Item name" style="border:0;outline:none;background:none;padding:0;font-size:24px;font-weight:700;width:100%"><span class="muted" style="font-size:13px">Other item · not linked to calorie tracking</span>`}</div></div>
       <div class="seg" role="radiogroup" aria-label="Where it's kept" style="grid-template-columns:repeat(4,1fr)">${PLACES.map(([k, l]) => `<button type="button" role="radio" aria-checked="${d.place === k}" class="${d.place === k ? 'on' : ''}" data-a="sdPlace" data-k="${k}">${l}</button>`).join('')}</div>
@@ -1627,7 +1648,17 @@ function sugHtml() {
         <button type="button" data-a="sugUse" data-i="${i}" style="flex:none;height:34px;padding:0 16px;border:0;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:14px;font-weight:600">Use</button></div>`;
     }).join('')}</section>`;
 }
-function refreshSug() { const b = document.getElementById('sugBox'); if (b) b.innerHTML = sugHtml(); }
+function refreshSug() { const b = document.getElementById('sugBox'); if (b) b.innerHTML = sugHtml(); const c = document.getElementById('dupBox'); if (c) c.innerHTML = dupHtml(); }
+/* new food: show foods I already have under a similar name, so I don't save the same thing twice */
+function dupHtml() {
+  const e = ui.edit; if (!e || e.type !== 'food' || e.id || e.dupDone) return '';
+  const fs = similarFoods(e.draft.name).slice(0, 3); if (!fs.length) return '';
+  return `<section class="card stack" aria-label="Already in your foods" style="gap:2px;padding:10px 10px 6px 14px">
+    <span class="rowc" style="justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Already in your foods?<button type="button" class="iconbtn" aria-label="Hide" data-a="dupHide" style="width:32px;height:28px;color:var(--muted)">${svg(I.x, 14)}</button></span>
+    ${fs.map((f, i) => `<div class="rowc" style="gap:10px;padding:8px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><span class="stack" style="flex:1;min-width:0;gap:3px"><span class="rowc" style="gap:6px;font-size:15px;font-weight:600;min-width:0">${icon(f.icon, 16, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="muted num" style="font-size:12px">${fmt(f.kcal100)} kcal / 100 ${unitOf(f)}${f.brand ? ' · ' + esc(f.brand) : ''}${stashTag(f)}</span></span>
+      <button type="button" data-a="dupUse" data-id="${f.id}" style="flex:none;height:34px;padding:0 14px;border:0;border-radius:999px;background:var(--line2);color:var(--text);font-size:14px;font-weight:600">Use this</button></div>`).join('')}
+    ${e.draft.code ? `<span class="muted" style="font-size:11px;padding-bottom:4px">"Use this" also links barcode ${esc(e.draft.code)} to it.</span>` : ''}</section>`;
+}
 function applySug(x, quiet) {
   const e = ui.edit; const d = e.draft;
   d.unit = x.unit === 'ml' ? 'ml' : 'g';
@@ -1671,6 +1702,7 @@ async function offProduct(code) {
 function pickFood(f) {
   const sh = ui.sheet;
   if (sh.pick === 'receipt') { ui.sheet = null; rcAssign({ foodId: f.id }); }
+  else if (sh.pick === 'merge') { ui.sheet = null; askMerge(f); }
   else if (sh.pick === 'stash') { ui.sheet = null; openStashEdit(f); }
   else if (sh.pick) { syncDraft(); ui.edit.draft.items.push({ foodId: f.id, g: f.lastGrams || 100 }); ui.sheet = null; }
   else openPortion(f);
@@ -1738,7 +1770,7 @@ async function openScan(onCode) {
 /* a scanned code in the Quick add sheet: my food → Open Food Facts → create it myself */
 async function codeToSheet(code) {
   if (!ui.sheet) return;
-  let f = S.foods.find((x) => x.code === code);
+  let f = foodByCode(code);
   if (!f) {
     toast('Looking up ' + code + '…'); render();
     let it = null;
@@ -1761,7 +1793,7 @@ function reviewOff(it) {
 /* a scanned code in the food editor: offer the product's values as a suggestion */
 async function codeToEdit(code) {
   const e = ui.edit; if (!e) return;
-  const other = S.foods.find((x) => x.code === code && x.id !== e.id);
+  const other = foodByCode(code, e.id);
   toast('Looking up ' + code + '…'); render();
   let it = null;
   try { it = await offProduct(code); } catch (err) { ui.toast = null; info("Couldn't reach Open Food Facts. Check your connection and try again."); render(); return; }
@@ -1769,6 +1801,60 @@ async function codeToEdit(code) {
   if (!it || it.kcal100 == null) { e.draft.code = code; info("This barcode isn't in Open Food Facts yet. The code is saved with this food, so scanning it finds it next time."); }
   else { e.offSug = it; e.sugDone = false; if (other) info('Note: "' + other.name + '" in your foods already has this barcode.'); }
   render();
+}
+
+/* ---------- Same food, other name ----------
+   "REWE Beste Wahl Natives Olivenöl" and "Olive oil" are the same food. Two checks:
+   1) both names point to the same built-in food (the built-in list knows German and English names),
+   2) they share most of their meaningful words (shop brands, "bio", sizes etc. are ignored). */
+const STOPW = new Set(['rewe', 'beste', 'wahl', 'edeka', 'aldi', 'lidl', 'penny', 'netto', 'kaufland', 'dm', 'rossmann', 'gut', 'gunstig', 'milbona', 'classic', 'k-classic', 'bio', 'organic', 'the', 'and', 'und', 'mit', 'with', 'extra', 'nativ', 'natives', 'nativen', 'vergine', 'original', 'fein', 'frisch', 'fresh', 'premium', 'raw', 'roh', 'dry', 'trocken', 'pack', 'packung', 'stuck', 'stk']);
+const sigTok = (x) => norm(x).replace(/[^a-z0-9äöü%.]+/g, ' ').split(' ').filter((t) => t.length >= 3 && !STOPW.has(t) && !/^\d/.test(t));
+const GKEYS = GENERIC.flatMap((g, i) => g.keys.filter((k) => k.length >= 3).map((k) => [k, i])).sort((a, b) => b[0].length - a[0].length);
+function genericIdx(name) {
+  const n = ' ' + norm(name).replace(/[^a-z0-9äöü%., ]+/g, ' ') + ' ';
+  const hit = GKEYS.find(([k]) => n.includes(' ' + k + ' ') || n.includes(' ' + k + ',') || (k.length >= 6 && n.includes(k))); return hit ? hit[1] : -1;
+}
+function sameFood(a, b) {
+  const pc = (x) => { const m = String(x).match(/(\d+(?:[.,]\d+)?)\s*%/); return m ? parseFloat(m[1].replace(',', '.')) : null; };
+  const pa = pc(a), pb = pc(b); if (pa != null && pb != null && Math.abs(pa - pb) > 0.05) return false; // Milk 1.5% ≠ Milk 3.5%
+  const ga = genericIdx(a); if (ga >= 0 && ga === genericIdx(b)) return true;
+  const ta = sigTok(a), tb = sigTok(b); if (!ta.length || !tb.length) return false;
+  const shared = ta.filter((t) => t.length >= 4 && tb.some((u) => u === t || (t.length >= 6 && (u.startsWith(t) || t.startsWith(u))))).length;
+  return shared > 0 && shared / Math.min(ta.length, tb.length) >= 0.5;
+}
+/* my foods that look like the same thing; foods in Stash first */
+function similarFoods(name, exceptId) {
+  if (!String(name || '').trim()) return [];
+  const inSt = (f) => { const it = stashOf(f.id); return it && !isOut(it) ? 1 : 0; };
+  return S.foods.filter((f) => f.id !== exceptId && sameFood(name, f.name)).sort((a, b) => inSt(b) - inSt(a) || (b.uses || 0) - (a.uses || 0));
+}
+/* barcodes: a food can carry several (e.g. the same olive oil from two shops) */
+const foodByCode = (code, exceptId) => S.foods.find((x) => x.id !== exceptId && (x.code === code || (x.codes || []).includes(code)));
+function addCode(f, code) { if (!code || f.code === code || (f.codes || []).includes(code)) return; if (!f.code) f.code = code; else f.codes = [...(f.codes || []), code]; }
+/* "in Stash" hint for food rows */
+function stashTag(f) { const it = stashOf(f.id); if (!it) return ''; return ` <span class="rowc" style="display:inline-flex;gap:3px;color:${isOut(it) ? 'var(--muted)' : 'var(--accent-soft)'}">${svg(I.box, 11, 2)}${isOut(it) ? 'out' : esc(amtMain(it))}</span>`; }
+/* merge a duplicate food into another: entries, meals, Stash, shopping, receipt memory and barcodes move over */
+function askMerge(dst) {
+  const src = food(ui.mergeSrc); if (!src || src === dst) return;
+  ask('Merge "' + src.name + '" into "' + dst.name + '"? Logged entries, meals, Stash, shopping and barcodes move over; "' + src.name + '" is deleted. Nutrition of "' + dst.name + '" is kept.', 'Merge', () => { mergeFoods(src, dst); ui.edit = null; ui.mergeSrc = null; }, false);
+}
+function mergeFoods(src, dst) {
+  const snap = JSON.stringify(S);
+  S.log.forEach((e) => { if (e.foodId === src.id) { e.foodId = dst.id; e.name = dst.name; } });
+  S.meals.forEach((m) => m.items.forEach((it) => { if (it.foodId === src.id) it.foodId = dst.id; }));
+  const a = stashOf(src.id), b = stashOf(dst.id);
+  if (a && b) { addStock(b, a.amount); S.stash = S.stash.filter((x) => x !== a); S.log.forEach((e) => { if (e.st && e.st.id === a.id) e.st.id = b.id; }); }
+  else if (a) { a.foodId = dst.id; if (!hasPack(a) && packOfFood(dst)) a.pack = packOfFood(dst); }
+  S.shop.forEach((x) => { if (x.foodId === src.id) { x.foodId = dst.id; x.name = dst.name; } });
+  if (S.cart['f:' + src.id]) { S.cart['f:' + dst.id] = S.cart['f:' + src.id]; delete S.cart['f:' + src.id]; }
+  Object.keys(S.rcpt || {}).forEach((k) => { if (S.rcpt[k].foodId === src.id) S.rcpt[k] = { foodId: dst.id }; });
+  [src.code, ...(src.codes || [])].forEach((c) => addCode(dst, c));
+  if (!dst.icon && src.icon) dst.icon = src.icon; if (!dst.buy && src.buy) dst.buy = src.buy;
+  (src.portions || []).forEach((p) => { if (!dst.portions.some((q) => unitName(q.label).toLowerCase() === unitName(p.label).toLowerCase())) dst.portions.push(p); }); sortPortions(dst.portions);
+  EXK.forEach(([x]) => { if (!hasV(dst[x + '100']) && hasV(src[x + '100'])) dst[x + '100'] = src[x + '100']; });
+  dst.uses = (dst.uses || 0) + (src.uses || 0); dst.fav = dst.fav || src.fav;
+  S.foods = S.foods.filter((f) => f !== src); save();
+  toast('"' + src.name + '" merged into ' + dst.name, null, () => { S = JSON.parse(snap); });
 }
 
 /* ---------- Receipt → Stash ----------
@@ -1786,7 +1872,7 @@ function fileToJpeg(file, max = 1568) {
   });
 }
 function rcPrompt() {
-  const mine = [...S.foods.map((f) => 'f:' + f.id + ' | ' + f.name + (f.brand ? ' | ' + f.brand : '') + (f.buy ? ' | ' + f.buy.label + ' ' + f.buy.g + ' ' + unitOf(f) : '')),
+  const mine = [...S.foods.map((f) => 'f:' + f.id + ' | ' + f.name + (f.brand ? ' | ' + f.brand : '') + (f.buy ? ' | ' + f.buy.label + ' ' + f.buy.g + ' ' + unitOf(f) : '') + (stashOf(f.id) ? ' | in Stash' : '')),
     ...S.stash.filter((it) => !it.foodId).map((it) => 's:' + it.id + ' | ' + sName(it) + ' | other item')].slice(0, 400).join('\n');
   return `You read photos of German supermarket receipts (one receipt, possibly in several photos). Reply with JSON only, no other text:
 {"store": string or null, "items": [{"line": "product text exactly as printed", "name": "readable product name, German as on the pack, e.g. 'H-Milch 1,5%'", "count": number of units bought, "size": amount per unit as a number or null, "unit": "g" | "ml" | "pcs", "kind": "food" | "other", "match": an id from MY ITEMS or null}]}
@@ -1795,7 +1881,7 @@ Rules:
 - Skip deposit (Pfand), empties returns (Leergut), discounts/Rabatt, carrier bags, totals, payment, tax and loyalty lines.
 - size/unit from the product text if printed ("500G", "1L" = 1000 ml, "6X0,5L" = count 6, size 500, ml); otherwise null and unit "g" for food, "pcs" for other.
 - kind "other" for non-food (cleaning, hygiene, household).
-- match: the id of MY ITEMS that is clearly the same kind of product (e.g. "H-MILCH 1,5%" with "Milk 1.5%"), else null. Never guess a match for a different product.
+- match: the id of MY ITEMS that is the same food, judged by what it is, not by brand, shop or language (e.g. "REWE BESTE WAHL OLIVENOEL" = "Olive oil", "H-MILCH 1,5%" = "Milk 1.5%"). If several fit, prefer the one marked "in Stash". Different fat levels, flavours or cooked vs raw are different foods. null if nothing fits; never match a different product.
 MY ITEMS (id | name | brand | bought as):
 ${mine || '(none yet)'}`;
 }
@@ -1830,6 +1916,7 @@ function rcRow(x) {
   else if (/^f:/.test(x.match || '') && food(x.match.slice(2))) r.target = { foodId: x.match.slice(2) };
   else if (/^s:/.test(x.match || '') && sItem(x.match.slice(2))) r.target = { sid: x.match.slice(2) };
   else if (r.kind === 'other') r.target = { other: r.name };
+  if (!r.target && r.kind === 'food') { const sim = similarFoods(r.name)[0]; if (sim) { r.target = { foodId: sim.id }; r.guess = true; } } // my own similarity check as a backup
   return r;
 }
 /* what a row adds to Stash: amount in the item's base unit (g/ml/pcs) and its pack, or null when unknown */
@@ -1843,7 +1930,7 @@ function rcInfo(r) {
   if (t.sid) { const it = sItem(t.sid); if (!it) return null; const u = sUnit(it); const a = r.a != null ? r.a : u === 'pcs' ? r.count : r.size && r.unit === u ? r.count * r.size : hasPack(it) ? r.count * it.pack.size : null; return { name: sName(it), u, pack: hasPack(it) ? it.pack : null, a, it }; }
   return { name: t.other, u: 'pcs', pack: null, a: r.a != null ? r.a : r.count, other: true };
 }
-function rcAssign(t) { const rc = ui.rc; if (!rc || rc.pick == null) return; const r = rc.rows[rc.pick]; if (r) { r.target = t; r.a = null; r.on = true; r.learned = false; } rc.pick = null; }
+function rcAssign(t) { const rc = ui.rc; if (!rc || rc.pick == null) return; const r = rc.rows[rc.pick]; if (r) { r.target = t; r.a = null; r.on = true; r.learned = false; r.guess = false; } rc.pick = null; }
 function renderReceipt() {
   const rc = ui.rc;
   const head = `<div class="pagehead"><button type="button" class="btn" data-a="rcClose" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}Stash</button><span style="font-size:17px;font-weight:600">Receipt</span><span style="width:70px"></span></div>`;
@@ -1860,10 +1947,10 @@ function renderReceipt() {
           <button type="button" class="check ${r.on ? 'on' : ''}" role="checkbox" aria-checked="${r.on}" aria-label="Put ${esc(r.name)} in Stash" data-a="rcToggle" data-i="${i}">${r.on ? svg(I.check, 15, 3) : ''}</button>
           <button type="button" data-a="rcPick" data-i="${i}" style="flex:1;min-width:0;border:0;background:none;padding:0;text-align:left;display:flex;flex-direction:column;gap:3px">
             <span style="font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${inf ? 'var(--text)' : 'var(--accent)'}">${inf ? esc(inf.name) + (inf.other && !(r.target && r.target.sid) ? ' <span class="muted" style="font-weight:400">· new item</span>' : '') : 'Pick a food…'}</span>
-            <span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.learned ? '✓ ' : ''}${esc(r.line)}${r.count > 1 ? ' · ×' + fmtN(r.count) : ''}</span></button>
+            <span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.learned ? '✓ ' : r.guess ? '≈ ' : ''}${esc(r.line)}${r.count > 1 ? ' · ×' + fmtN(r.count) : ''}</span></button>
           ${inf ? `<button type="button" class="chip" data-a="rcAmt" data-i="${i}" style="height:32px;padding:0 12px;white-space:nowrap;flex:none;${ok ? '' : 'color:var(--accent);border-style:dashed'}">${ok ? esc(packOrBase(inf.a, inf.u, inf.pack)) : 'Amount?'}</button>` : ''}</div>`;
       }).join('') : `<div class="empty">No products found on this receipt.</div>`}
-      <span class="muted" style="font-size:12px;line-height:1.5;margin-top:12px">Tap a product to match it to another food. Matches you confirm are remembered for next time (✓).</span>
+      <span class="muted" style="font-size:12px;line-height:1.5;margin-top:12px">Tap a product to match it to another food. ≈ = guessed from a similar name, check it. Matches you confirm are remembered for next time (✓).</span>
       <button type="button" class="btn-primary" data-a="rcCommit" style="margin-top:16px;${ready ? '' : 'opacity:.4'}" ${ready ? '' : 'disabled'}>Put ${ready} in Stash</button>
       ${need ? `<span class="muted" style="font-size:12px;text-align:center;margin-top:8px">${need} ticked ${need === 1 ? 'line needs' : 'lines need'} a food or amount first</span>` : ''}`;
   }
@@ -1960,12 +2047,13 @@ const A = {
   pickAdd(el) {
     const f = food(el.dataset.id);
     if (ui.sheet.pick === 'receipt') { ui.sheet = null; rcAssign({ foodId: f.id }); return; }
+    if (ui.sheet.pick === 'merge') { ui.sheet = null; askMerge(f); return; }
     if (ui.sheet.pick === 'stash') { ui.sheet = null; openStashEdit(f); return; }
     syncDraft(); ui.edit.draft.items.push({ foodId: f.id, g: defaultGrams(f) }); ui.sheet = null;
   },
   offPick(el) {
     const p = ui.off.items[+el.dataset.i];
-    const f = S.foods.find((x) => x.code && x.code === p.code);
+    const f = p.code ? foodByCode(p.code) : null;
     if (f) pickFood(f); else reviewOff(p);
   },
   scanSheet() { openScan(codeToSheet); },
@@ -1979,6 +2067,16 @@ const A = {
     }
     applySug(x);
   },
+  dupHide() { syncDraft(); ui.edit.dupDone = true; },
+  dupUse(el) {
+    syncDraft(); const f = food(el.dataset.id); const e = ui.edit; addCode(f, e.draft.code); save();
+    const from = e.from, date = e.date;
+    if (from === 'receipt') { ui.edit = null; rcAssign({ foodId: f.id }); }
+    else if (from === 'pick' && ui.pendingPick) { ui.edit = ui.pendingPick; ui.pendingPick = null; ui.edit.draft.items.push({ foodId: f.id, g: defaultGrams(f) }); }
+    else { ui.edit = null; if (from === 'sheet') openPortion(f, { date }); else if (from === 'stash') openStashEdit(f); else openFoodEdit(f); }
+    toast('Using ' + f.name + (e.draft.code ? ' · barcode linked' : ''));
+  },
+  mergeStart() { syncDraft(); ui.mergeSrc = ui.edit.id; const f = food(ui.mergeSrc); ui.sheet = { tab: 'search', q: similarFoods(f.name, f.id).length ? f.name : '', pick: 'merge', date: todayKey() }; },
   sugHide() { syncDraft(); ui.edit.sugDone = true; ui.edit.offSug = null; },
   saveClaude() { const v = document.getElementById('claudeKey').value.trim(); lsSet('mmm.claude', v); toast(v ? 'Claude key saved' : 'Claude key removed'); },
   saveUsda() { const v = document.getElementById('usdaKey').value.trim(); lsSet('mmm.usda', v); toast(v ? 'USDA key saved' : 'USDA key removed'); },
@@ -2106,6 +2204,7 @@ const A = {
   newMeal() { ui.edit = { type: 'meal', id: null, draft: { name: '', items: [], fav: false } }; },
   editMeal(el) { const m = meal(el.dataset.id); ui.edit = { type: 'meal', id: m.id, draft: JSON.parse(JSON.stringify({ name: m.name, items: m.items, fav: !!m.fav })) }; },
   mealAddFood() { syncDraft(); ui.sheet = { tab: S.foods.some((f) => f.lastUsed) ? 'recent' : 'search', q: '', pick: 'meal', date: todayKey() }; },
+  mealSwap(el) { syncDraft(); const it = ui.edit.draft.items[+el.dataset.i]; const f = food(el.dataset.id); if (it && f) { it.foodId = f.id; toast('Using ' + f.name + ' from Stash'); } },
   rmMealItem(el) { syncDraft(); ui.edit.draft.items.splice(+el.dataset.i, 1); },
   saveMeal() {
     syncDraft(); const d = ui.edit.draft;
@@ -2171,6 +2270,10 @@ const A = {
   rcCommit() { rcCommit(); },
   stashAdd() { ui.sheet = { tab: S.foods.some((f) => f.lastUsed) ? 'recent' : 'search', q: '', pick: 'stash', date: todayKey() }; },
   editStash(el) { const it = sItem(el.dataset.id); openStashEdit(it.foodId ? food(it.foodId) : null, { id: it.id }); },
+  sdIcon() {
+    syncDraft(); const d = ui.edit.draft; const f = d.foodId && food(d.foodId);
+    ui.iconPick = { title: f ? 'Food icon' : 'Item icon', name: f ? f.name : d.name || 'this item', get: () => (f ? f.icon : d.icon), set: (k) => { if (f) { f.icon = f.icon === k ? null : k; save(); } else d.icon = d.icon === k ? null : k; } };
+  },
   sdPlace(el) { syncDraft(); ui.edit.draft.place = el.dataset.k; },
   sdUnit(el) { syncDraft(); ui.edit.draft.unit = el.dataset.k; },
   sdView(el) {
@@ -2200,7 +2303,7 @@ const A = {
     let it = ui.edit.id ? sItem(ui.edit.id) : null;
     if (!it) { it = newStashItem(f, { name: f ? '' : d.name.trim(), unit: f ? unitOf(f) : d.unit }); S.stash.push(it); }
     const grew = amount > it.amount + 0.0001;
-    Object.assign(it, { name: f ? '' : d.name.trim(), unit: f ? unitOf(f) : d.unit, pack, min, amount, place: d.place || placeOf(it), updated: Date.now() });
+    Object.assign(it, { name: f ? '' : d.name.trim(), unit: f ? unitOf(f) : d.unit, pack, min, amount, place: d.place || placeOf(it), icon: f ? undefined : d.icon || undefined, updated: Date.now() });
     if (grew || !(it.full > 0) || it.full < amount) it.full = amount;
     if (f && pack && !(f.buy && Math.abs(f.buy.g - pack.size) < 0.01)) f.buy = { label: '1 ' + pack.label, g: pack.size };
     save(); ui.edit = null; toast(sName(it) + ' · ' + (isOut(it) ? 'out' : amtMain(it)) + ' in Stash');
