@@ -116,6 +116,7 @@ html.kb .main{padding-bottom:40px}
 <body>
 <div id="app"></div>
 <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+<input type="file" id="rcFile" accept="image/*" multiple style="display:none">
 <script>
 'use strict';
 /* ---------- constants ---------- */
@@ -182,6 +183,7 @@ const I = {
   box: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>', plan: '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   cart: '<path d="M3 4h2.5l2.2 11h10.6L20.5 8H7"/><circle cx="9.5" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', barcode: '<path d="M4 6v12M7.5 6v12M10.5 6v12M14 6v12M16.5 6v12M20 6v12"/>', scale: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 10a5 5 0 0 1 7 0M12 10l1.3-1.6"/>', minus: '<path d="M5 12h14"/>', down: '<path d="M7 10l5 5 5-5"/>',
+  receipt: '<path d="M6 3h12v18l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z"/><path d="M9 8h6M9 11.5h6M9 15h3.5"/>',
   share: '<path d="M12 4v11M8 8l4-4 4 4M6 13v6h12v-6"/>', flame: '<path d="M12 21c4 0 6.5-2.7 6.5-6.3 0-4-3.3-6.2-4.5-9.7-2.2 1.6-3.2 3.9-3 6.3-1.3-.8-2-2.2-2.1-3.6C7.3 9.3 5.5 11.8 5.5 14.7 5.5 18.3 8 21 12 21z"/>'
 };
 const LOGO = `<svg width="22" height="22" viewBox="0 0 100 100" fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="#5B9BFF" d="M28 8C26 18 17 28 17 44C17 52 18 58 19.5 64 M72 8C74 18 83 28 83 44C83 52 82 58 80.5 64 M50 38V54"/><path stroke="#34D3B0" d="M24 94C22 84 20.5 74 19.5 64C27 75 44 75 50 58C56 75 73 75 80.5 64C79.5 74 78 84 76 94"/></svg>`;
@@ -584,7 +586,7 @@ function rowMeal(m) {
 /* "New food" row: at the end of every Quick add tab, not only after searching */
 function createRow() {
   const sh = ui.sheet; const q = (sh.q || '').trim();
-  return `<div style="padding:18px 0 30px"><button type="button" class="btn-soft" data-a="createFood"><span style="width:26px;height:26px;border-radius:999px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center">${svg(I.plus, 14, 3)}</span>${sh.tab === 'search' && q ? 'Not found? Create food' : 'New food'}</button>${sh.pick === 'stash' ? `<button type="button" class="btn" data-a="otherItem" style="width:100%;margin-top:8px;font-weight:500">Not a food? Add other item${sh.tab === 'search' && q ? ' "' + esc(q) + '"' : ''}</button>` : ''}</div>`;
+  return `<div style="padding:18px 0 30px"><button type="button" class="btn-soft" data-a="createFood"><span style="width:26px;height:26px;border-radius:999px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center">${svg(I.plus, 14, 3)}</span>${sh.tab === 'search' && q ? 'Not found? Create food' : 'New food'}</button>${sh.pick === 'stash' || sh.pick === 'receipt' ? `<button type="button" class="btn" data-a="otherItem" style="width:100%;margin-top:8px;font-weight:500">Not a food? Add other item${sh.tab === 'search' && q ? ' "' + esc(q) + '"' : ''}</button>` : ''}</div>`;
 }
 /* the meal Quick add is filling right now, so you can see what's already in it */
 function inMealHtml() {
@@ -645,7 +647,7 @@ function renderSheet() {
     <div class="grab"></div>
     <div class="stack" style="gap:14px;padding:10px 20px 6px">
       ${sh.out ? `<span class="muted" style="font-size:12px;margin-bottom:-8px">Eating out · nothing is taken from Stash</span>` : ''}
-      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}<button type="button" class="iconbtn" aria-label="Scan barcode" data-a="scanSheet" style="color:var(--accent);${!sh.pick && S.stash.length ? '' : 'margin-left:auto'}">${svg(I.barcode, 22, 1.9)}</button>${!sh.pick && sh.n ? `<button type="button" class="btn" data-a="closeSheet" style="margin-right:-10px;font-size:16px">Done</button>` : `<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button>`}</div>
+      <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick === 'receipt' ? 'Match receipt line' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}<button type="button" class="iconbtn" aria-label="Scan barcode" data-a="scanSheet" style="color:var(--accent);${!sh.pick && S.stash.length ? '' : 'margin-left:auto'}">${svg(I.barcode, 22, 1.9)}</button>${!sh.pick && sh.n ? `<button type="button" class="btn" data-a="closeSheet" style="margin-right:-10px;font-size:16px">Done</button>` : `<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button>`}</div>
       ${sh.pick ? '' : targetChips()}
       <div class="seg" role="tablist" style="grid-template-columns:repeat(4,1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
       ${sh.tab === 'search' ? `<label class="search">${svg(I.search, 18)}<input id="sheetQ" type="search" placeholder="Search foods" value="${esc(sh.q || '')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
@@ -1014,6 +1016,10 @@ function renderSettings() {
         <div class="seg" role="radiogroup" aria-label="Meal bars by" style="grid-template-columns:1fr 1fr;padding:2px;width:170px;background:var(--line)">${[['g', 'Grams'], ['kcal', 'Calories']].map(([k, l]) => `<button type="button" role="radio" aria-checked="${(S.barMode || 'g') === k}" style="height:30px" class="${(S.barMode || 'g') === k ? 'on' : ''}" data-a="barMode" data-k="${k}">${l}</button>`).join('')}</div></div>
       <span class="muted" style="font-size:12px;padding:0 4px">How the protein / carbs / fat bar under each meal on Today is split and sized: by grams eaten, or by the calories they bring.</span>
     </section>
+    <section class="stack" aria-label="Receipt scanning" style="gap:12px"><h2 class="sec" style="font-size:13px">Receipt scanning</h2>
+      <div class="rowc" style="gap:8px;min-height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px;flex:none">Claude key</span><input id="claudeKey" type="password" value="${esc(claudeKey())}" placeholder="sk-ant-…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Claude API key" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:15px;text-align:right;padding:0"><button type="button" class="btn" data-a="saveClaude" style="font-size:15px">Save</button></div>
+      <span class="muted" style="font-size:12px;padding:0 4px;line-height:1.5">Stash → receipt button reads a photo of your receipt with Claude and puts what you bought in Stash. Needs your own API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a> (pay as you go, a few cents per receipt at most). The key stays on this phone, isn't part of backups, and the photo goes only to Anthropic.</span>
+    </section>
     <section class="stack" aria-label="Food suggestions" style="gap:12px"><h2 class="sec" style="font-size:13px">Food suggestions</h2>
       <div class="rowc" style="gap:8px;min-height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px;flex:none">USDA key</span><input id="usdaKey" value="${esc(usdaKey())}" placeholder="Paste your free key" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="USDA API key" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:15px;text-align:right;padding:0"><button type="button" class="btn" data-a="saveUsda" style="font-size:15px">Save</button></div>
       <span class="muted" style="font-size:12px;padding:0 4px;line-height:1.5">${GENERIC.length} common foods are built in. For anything else, new foods are looked up in the USDA database once you add a free key from <a href="https://fdc.nal.usda.gov/api-key-signup" target="_blank" rel="noopener" style="color:var(--accent)">fdc.nal.usda.gov</a>. The key stays on this phone and isn't part of backups.</span>
@@ -1105,7 +1111,7 @@ function renderStash() {
   const n = S.stash.length, low = S.stash.filter((it) => isLow(it) && !isOut(it)).length, out = S.stash.filter(isOut).length;
   return `<div class="stack" style="gap:16px">${titleLine()}
     <div class="between"><div class="stack" style="gap:4px"><h1 class="h1">Stash</h1><span class="muted" style="font-size:13px">${n} item${n === 1 ? '' : 's'}${low ? ' · ' + low + ' low' : ''}${out ? ' · ' + out + ' out' : ''}</span></div>
-      <button type="button" class="iconbtn" aria-label="Add to Stash" data-a="stashAdd" style="border-radius:999px;background:var(--surface);color:var(--accent);margin-right:-6px">${svg(I.plus, 20, 2.2)}</button></div>
+      <span class="rowc" style="gap:8px;margin-right:-6px"><button type="button" class="iconbtn" aria-label="Scan a receipt" data-a="rcStart" style="border-radius:999px;background:var(--surface);color:var(--accent)">${svg(I.receipt, 20, 1.9)}</button><button type="button" class="iconbtn" aria-label="Add to Stash" data-a="stashAdd" style="border-radius:999px;background:var(--surface);color:var(--accent)">${svg(I.plus, 20, 2.2)}</button></span></div>
     ${n > 5 ? `<label class="search">${svg(I.search, 18)}<input id="stashQ" type="search" placeholder="Search stash" value="${esc(ui.stashQ)}" autocomplete="off"></label>` : ''}
     <div id="stashList" class="stack">${stashListHtml()}</div></div>`;
 }
@@ -1325,6 +1331,7 @@ function render() {
     ui.tall = needW;
   }
   if (ui.edit) html += ui.edit.type === 'food' ? renderFoodEdit() : ui.edit.type === 'meal' ? renderMealEdit() : ui.edit.type === 'stash' ? renderStashEdit() : renderPeriodEdit();
+  if (ui.rc) html += renderReceipt();
   if (ui.mealPick) html += renderMealPick();
   if (ui.shopAdd) html += renderShopAdd();
   if (ui.sheet) html += renderSheet();
@@ -1663,7 +1670,8 @@ async function offProduct(code) {
 /* what happens with a food picked in the Quick add sheet (log it, add it to a meal or to Stash) */
 function pickFood(f) {
   const sh = ui.sheet;
-  if (sh.pick === 'stash') { ui.sheet = null; openStashEdit(f); }
+  if (sh.pick === 'receipt') { ui.sheet = null; rcAssign({ foodId: f.id }); }
+  else if (sh.pick === 'stash') { ui.sheet = null; openStashEdit(f); }
   else if (sh.pick) { syncDraft(); ui.edit.draft.items.push({ foodId: f.id, g: f.lastGrams || 100 }); ui.sheet = null; }
   else openPortion(f);
 }
@@ -1763,6 +1771,123 @@ async function codeToEdit(code) {
   render();
 }
 
+/* ---------- Receipt → Stash ----------
+   Photo(s) of a receipt go to Claude (your own key, straight from the phone), which lists what was bought and matches
+   it to my foods. A review list lets me fix things, then everything goes into Stash. Receipt lines I confirm are
+   remembered (S.rcpt), so the same line matches by itself next time. */
+const claudeKey = () => lsGet('mmm.claude', '').trim();
+const RC_MODEL = 'claude-sonnet-5-5';
+const rcKey = (line) => norm(line).replace(/[\d.,]+\s*(€|eur)?\s*[ab]?$/i, '').replace(/\s+/g, ' ').trim();
+function fileToJpeg(file, max = 1568) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => { const s = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.85).split(',')[1]); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img')); }; img.src = url;
+  });
+}
+function rcPrompt() {
+  const mine = [...S.foods.map((f) => 'f:' + f.id + ' | ' + f.name + (f.brand ? ' | ' + f.brand : '') + (f.buy ? ' | ' + f.buy.label + ' ' + f.buy.g + ' ' + unitOf(f) : '')),
+    ...S.stash.filter((it) => !it.foodId).map((it) => 's:' + it.id + ' | ' + sName(it) + ' | other item')].slice(0, 400).join('\n');
+  return `You read photos of German supermarket receipts (one receipt, possibly in several photos). Reply with JSON only, no other text:
+{"store": string or null, "items": [{"line": "product text exactly as printed", "name": "readable product name, German as on the pack, e.g. 'H-Milch 1,5%'", "count": number of units bought, "size": amount per unit as a number or null, "unit": "g" | "ml" | "pcs", "kind": "food" | "other", "match": an id from MY ITEMS or null}]}
+Rules:
+- One entry per product. Fold quantity lines like "2 x 1,29" into count. Weighed items ("0,532 kg x 2,99 EUR/kg") are count 1, size 532, unit "g".
+- Skip deposit (Pfand), empties returns (Leergut), discounts/Rabatt, carrier bags, totals, payment, tax and loyalty lines.
+- size/unit from the product text if printed ("500G", "1L" = 1000 ml, "6X0,5L" = count 6, size 500, ml); otherwise null and unit "g" for food, "pcs" for other.
+- kind "other" for non-food (cleaning, hygiene, household).
+- match: the id of MY ITEMS that is clearly the same kind of product (e.g. "H-MILCH 1,5%" with "Milk 1.5%"), else null. Never guess a match for a different product.
+MY ITEMS (id | name | brand | bought as):
+${mine || '(none yet)'}`;
+}
+async function rcRead(files) {
+  ui.rc = { state: 'loading', n: files.length, rows: [] }; render();
+  try {
+    const imgs = await Promise.all(files.map((f) => fileToJpeg(f)));
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': claudeKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: RC_MODEL, max_tokens: 4096, messages: [{ role: 'user', content: [...imgs.map((d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } })), { type: 'text', text: rcPrompt() }] }] })
+    });
+    if (res.status === 401 || res.status === 403) throw new Error('key');
+    if (!res.ok) { let m = ''; try { m = (await res.json()).error.message; } catch (e) { /* none */ } throw new Error('http:' + res.status + (m ? ' · ' + m : '')); }
+    const data = await res.json(); const txt = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+    const js = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+    if (!ui.rc) return;
+    ui.rc = { state: 'review', store: js.store || null, rows: (js.items || []).map(rcRow).filter(Boolean) };
+  } catch (e) {
+    if (!ui.rc) return;
+    const m = String(e.message || '');
+    ui.rc = { state: 'error', msg: m === 'key' ? "Claude didn't accept your key. Check it in Settings." : m === 'img' ? "Couldn't open that photo." : /^http:/.test(m) ? 'Claude returned an error (' + m.slice(5) + ').' : e instanceof SyntaxError ? "Couldn't read the answer. Try again, maybe with a sharper photo." : "Couldn't reach Claude. Check your connection." };
+  }
+  render();
+}
+function rcRow(x) {
+  if (!x || !(x.line || x.name)) return null;
+  const r = { line: String(x.line || x.name), name: String(x.name || x.line), count: Math.max(1, num(x.count, 1)), size: num(x.size) > 0 ? num(x.size) : null, unit: /^(g|ml|pcs)$/.test(x.unit) ? x.unit : 'g', kind: x.kind === 'other' ? 'other' : 'food', on: true, target: null, a: null, learned: false };
+  const known = S.rcpt && S.rcpt[rcKey(r.line)]; // lines I confirmed before win over Claude's guess
+  const valid = (t) => t && ((t.foodId && food(t.foodId)) || (t.sid && sItem(t.sid)));
+  if (valid(known)) { r.target = { ...known }; r.learned = true; }
+  else if (/^f:/.test(x.match || '') && food(x.match.slice(2))) r.target = { foodId: x.match.slice(2) };
+  else if (/^s:/.test(x.match || '') && sItem(x.match.slice(2))) r.target = { sid: x.match.slice(2) };
+  else if (r.kind === 'other') r.target = { other: r.name };
+  return r;
+}
+/* what a row adds to Stash: amount in the item's base unit (g/ml/pcs) and its pack, or null when unknown */
+function rcInfo(r) {
+  const t = r.target; if (!t) return null;
+  if (t.foodId) {
+    const f = food(t.foodId); if (!f) return null; const u = unitOf(f); const it = stashOf(f.id); const pack = hasPack(it) ? it.pack : packOfFood(f);
+    const a = r.a != null ? r.a : r.size && r.unit === u ? r.count * r.size : pack ? r.count * pack.size : null;
+    return { name: f.name, u, pack, a, f };
+  }
+  if (t.sid) { const it = sItem(t.sid); if (!it) return null; const u = sUnit(it); const a = r.a != null ? r.a : u === 'pcs' ? r.count : r.size && r.unit === u ? r.count * r.size : hasPack(it) ? r.count * it.pack.size : null; return { name: sName(it), u, pack: hasPack(it) ? it.pack : null, a, it }; }
+  return { name: t.other, u: 'pcs', pack: null, a: r.a != null ? r.a : r.count, other: true };
+}
+function rcAssign(t) { const rc = ui.rc; if (!rc || rc.pick == null) return; const r = rc.rows[rc.pick]; if (r) { r.target = t; r.a = null; r.on = true; r.learned = false; } rc.pick = null; }
+function renderReceipt() {
+  const rc = ui.rc;
+  const head = `<div class="pagehead"><button type="button" class="btn" data-a="rcClose" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:16px">${svg(I.back)}Stash</button><span style="font-size:17px;font-weight:600">Receipt</span><span style="width:70px"></span></div>`;
+  let body;
+  if (rc.state === 'loading') body = `<div class="empty" style="padding-top:80px">${svg(I.receipt, 32, 1.6)}<br><br>Reading your receipt${rc.n > 1 ? ' (' + rc.n + ' photos)' : ''}…<br><span style="font-size:13px">This takes up to half a minute.</span></div>`;
+  else if (rc.state === 'error') body = `<div class="empty" style="padding-top:60px">${esc(rc.msg)}</div><button type="button" class="btn-primary" data-a="rcAgain">Try again</button>`;
+  else {
+    const ready = rc.rows.filter((r) => { const i = r.on && rcInfo(r); return i && i.a > 0; }).length;
+    const need = rc.rows.filter((r) => r.on && !(rcInfo(r) && rcInfo(r).a > 0)).length;
+    body = `<div class="stack" style="gap:4px;margin-bottom:10px"><h1 class="h1" style="font-size:28px">${esc(rc.store || 'Your receipt')}</h1><span class="muted" style="font-size:13px">${rc.rows.length} products · check the matches, then put them in Stash</span></div>
+      ${rc.rows.length ? rc.rows.map((r, i) => {
+        const inf = rcInfo(r); const ok = inf && inf.a > 0;
+        return `<div class="rowc" style="gap:12px;min-height:70px;padding:8px 0;border-bottom:1px solid #1B2232;opacity:${r.on ? 1 : 0.45}">
+          <button type="button" class="check ${r.on ? 'on' : ''}" role="checkbox" aria-checked="${r.on}" aria-label="Put ${esc(r.name)} in Stash" data-a="rcToggle" data-i="${i}">${r.on ? svg(I.check, 15, 3) : ''}</button>
+          <button type="button" data-a="rcPick" data-i="${i}" style="flex:1;min-width:0;border:0;background:none;padding:0;text-align:left;display:flex;flex-direction:column;gap:3px">
+            <span style="font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${inf ? 'var(--text)' : 'var(--accent)'}">${inf ? esc(inf.name) + (inf.other && !(r.target && r.target.sid) ? ' <span class="muted" style="font-weight:400">· new item</span>' : '') : 'Pick a food…'}</span>
+            <span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.learned ? '✓ ' : ''}${esc(r.line)}${r.count > 1 ? ' · ×' + fmtN(r.count) : ''}</span></button>
+          ${inf ? `<button type="button" class="chip" data-a="rcAmt" data-i="${i}" style="height:32px;padding:0 12px;white-space:nowrap;flex:none;${ok ? '' : 'color:var(--accent);border-style:dashed'}">${ok ? esc(packOrBase(inf.a, inf.u, inf.pack)) : 'Amount?'}</button>` : ''}</div>`;
+      }).join('') : `<div class="empty">No products found on this receipt.</div>`}
+      <span class="muted" style="font-size:12px;line-height:1.5;margin-top:12px">Tap a product to match it to another food. Matches you confirm are remembered for next time (✓).</span>
+      <button type="button" class="btn-primary" data-a="rcCommit" style="margin-top:16px;${ready ? '' : 'opacity:.4'}" ${ready ? '' : 'disabled'}>Put ${ready} in Stash</button>
+      ${need ? `<span class="muted" style="font-size:12px;text-align:center;margin-top:8px">${need} ticked ${need === 1 ? 'line needs' : 'lines need'} a food or amount first</span>` : ''}`;
+  }
+  return `<div class="layer" style="z-index:35"><div class="page">${head}<div class="scroll" data-scroll="rc"><div class="stack" style="padding-top:6px">${body}</div></div></div></div>`;
+}
+function rcCommit() {
+  const rc = ui.rc; const snap = JSON.stringify({ stash: S.stash, shop: S.shop, cart: S.cart, rcpt: S.rcpt || {} }); let n = 0;
+  S.rcpt = S.rcpt || {};
+  rc.rows.forEach((r) => {
+    const inf = r.on && rcInfo(r); if (!inf || !(inf.a > 0)) return; n++;
+    let it;
+    if (inf.f) { it = stashOf(inf.f.id); if (!it) { it = newStashItem(inf.f); it.place = guessPlace(inf.f); S.stash.push(it); } if (!hasPack(it) && inf.pack) it.pack = { ...inf.pack }; }
+    else if (inf.it) it = inf.it;
+    else { it = S.stash.find((x) => !x.foodId && norm(x.name) === norm(inf.name)); if (!it) { it = newStashItem(null, { name: inf.name, unit: 'pcs', place: 'other' }); S.stash.push(it); } }
+    addStock(it, inf.a);
+    S.rcpt[rcKey(r.line)] = it.foodId ? { foodId: it.foodId } : { sid: it.id }; // remember this receipt line
+    // bought: tick it off the shopping list
+    S.shop = S.shop.filter((x) => !((it.foodId && x.foodId === it.foodId) || x.sid === it.id));
+    delete S.cart['s:' + it.id]; if (it.foodId) delete S.cart['f:' + it.foodId];
+  });
+  save(); ui.rc = null;
+  toast(n + (n === 1 ? ' item' : ' items') + ' put in Stash', null, () => { const o = JSON.parse(snap); S.stash = o.stash; S.shop = o.shop; S.cart = o.cart; S.rcpt = o.rcpt; });
+}
+
 /* ---------- events ---------- */
 const A = {
   tab(el) { ui.tab = el.dataset.k; ui.day = null; },
@@ -1834,6 +1959,7 @@ const A = {
   },
   pickAdd(el) {
     const f = food(el.dataset.id);
+    if (ui.sheet.pick === 'receipt') { ui.sheet = null; rcAssign({ foodId: f.id }); return; }
     if (ui.sheet.pick === 'stash') { ui.sheet = null; openStashEdit(f); return; }
     syncDraft(); ui.edit.draft.items.push({ foodId: f.id, g: defaultGrams(f) }); ui.sheet = null;
   },
@@ -1854,9 +1980,14 @@ const A = {
     applySug(x);
   },
   sugHide() { syncDraft(); ui.edit.sugDone = true; ui.edit.offSug = null; },
+  saveClaude() { const v = document.getElementById('claudeKey').value.trim(); lsSet('mmm.claude', v); toast(v ? 'Claude key saved' : 'Claude key removed'); },
   saveUsda() { const v = document.getElementById('usdaKey').value.trim(); lsSet('mmm.usda', v); toast(v ? 'USDA key saved' : 'USDA key removed'); },
-  createFood() { const q = ui.sheet.q || ''; const pick = ui.sheet.pick; const date = ui.sheet.date; if (pick) ui.sheet = null; if (pick === 'meal') { ui.pendingPick = ui.edit; } openFoodEdit(null, { name: q, from: pick === 'stash' ? 'stash' : pick ? 'pick' : 'sheet', date, z: 45 }); ui.edit.date = date; },
-  otherItem() { const q = ui.sheet.q || ''; ui.sheet = null; openStashEdit(null, { name: q }); },
+  createFood() { const q = ui.sheet.q || ''; const pick = ui.sheet.pick; const date = ui.sheet.date; if (pick) ui.sheet = null; if (pick === 'meal') { ui.pendingPick = ui.edit; } openFoodEdit(null, { name: q, from: pick === 'stash' ? 'stash' : pick === 'receipt' ? 'receipt' : pick ? 'pick' : 'sheet', date, z: 45 }); ui.edit.date = date; },
+  otherItem() {
+    const q = (ui.sheet.q || '').trim(); const pick = ui.sheet.pick; ui.sheet = null;
+    if (pick === 'receipt') { const r = ui.rc && ui.rc.rows[ui.rc.pick]; rcAssign({ other: q || (r ? r.name : 'Item') }); return; }
+    openStashEdit(null, { name: q });
+  },
   closePortion() { ui.portion = null; },
   chip(el) { ui.portion.val = el.dataset.v; ui.portion.fresh = true; },
   key(el) {
@@ -1961,7 +2092,8 @@ const A = {
     else { f = { id: uid(), source: d.src || 'own', uses: 0, ...vals }; S.foods.push(f); }
     save();
     const from = ui.edit.from, date = ui.edit.date;
-    if (from === 'pick' && ui.pendingPick) { ui.edit = ui.pendingPick; ui.pendingPick = null; ui.edit.draft.items.push({ foodId: f.id, g: defaultGrams(f) }); }
+    if (from === 'receipt') { ui.edit = null; rcAssign({ foodId: f.id }); }
+    else if (from === 'pick' && ui.pendingPick) { ui.edit = ui.pendingPick; ui.pendingPick = null; ui.edit.draft.items.push({ foodId: f.id, g: defaultGrams(f) }); }
     else { ui.edit = null; if (from === 'sheet') openPortion(f, { date }); else if (from === 'stash') openStashEdit(f); }
   },
   deleteFood() {
@@ -2024,6 +2156,19 @@ const A = {
   setApp(el) { ui.app = el.dataset.k; ui.appMenu = false; lsSet('mmm.app', ui.app); },
   stab(el) { ui.stab = el.dataset.k; },
   // stash
+  rcStart() {
+    if (!claudeKey()) { ask('To read receipts, add your Claude API key in the Calorie tracker under Settings → Receipt scanning.', 'Open Settings', () => { ui.app = 'cal'; lsSet('mmm.app', 'cal'); ui.tab = 'settings'; ui.day = null; }, false); return; }
+    const i = document.getElementById('rcFile'); i.value = ''; i.click();
+  },
+  rcAgain() { ui.rc = null; A.rcStart(); },
+  rcClose() { if (ui.rc && ui.rc.state === 'review' && ui.rc.rows.length) ask('Leave without putting anything in Stash?', 'Leave', () => { ui.rc = null; }); else ui.rc = null; },
+  rcToggle(el) { const r = ui.rc.rows[+el.dataset.i]; r.on = !r.on; },
+  rcPick(el) { ui.rc.pick = +el.dataset.i; const r = ui.rc.rows[ui.rc.pick]; ui.sheet = { tab: 'search', q: r.name, pick: 'receipt', date: todayKey() }; offSearch(norm(r.name)); },
+  rcAmt(el) {
+    const r = ui.rc.rows[+el.dataset.i]; const inf = rcInfo(r);
+    openQty(inf.name, 'Bought · ' + r.line, inf.a || (inf.pack ? inf.pack.size * r.count : 0), inf.u, inf.pack, (a) => { r.a = a; });
+  },
+  rcCommit() { rcCommit(); },
   stashAdd() { ui.sheet = { tab: S.foods.some((f) => f.lastUsed) ? 'recent' : 'search', q: '', pick: 'stash', date: todayKey() }; },
   editStash(el) { const it = sItem(el.dataset.id); openStashEdit(it.foodId ? food(it.foodId) : null, { id: it.id }); },
   sdPlace(el) { syncDraft(); ui.edit.draft.place = el.dataset.k; },
@@ -2178,6 +2323,7 @@ document.addEventListener('change', (ev) => {
     const v = Math.round(num(el.value)); if (v >= 800 && v <= 8000) { S.maintenance = v; save(); } else { info('Please enter a value between 800 and 8,000 kcal.'); render(); }
   } else if (el.dataset.mi != null && ui.edit && ui.edit.type === 'meal') { syncDraft(); render(); }
   else if ((el.dataset.d === 'start' || el.dataset.d === 'end') && ui.edit && ui.edit.type === 'period') { syncDraft(); render(); }
+  else if (el.id === 'rcFile') { const fs = [...el.files]; if (fs.length) rcRead(fs.slice(0, 4)); }
   else if (el.id === 'importFile') {
     const file = el.files[0]; if (!file) return;
     const rd = new FileReader();
