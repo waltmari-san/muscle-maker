@@ -1279,11 +1279,11 @@ Blueberries|heidelbeeren,blaubeeren,blueberry|57,0.7,12.1,0.3,0,10,2.4,0|1 cup:1
 Raspberries|himbeeren,raspberry|52,1.2,5.4,0.7,0,4.4,6.5,0|1 cup:125
 Grapes|weintrauben,trauben,grape|69,0.7,17.2,0.2,0.1,15.5,0.9,0|1 cup:150
 Kiwi|kiwis|61,1.1,11.7,0.5,0,9,3,0|1 piece:75
-Mango|mangos|60,0.8,13.4,0.4,0.1,13.7,1.6,0|1 piece:200
+Mango|mangos|60,0.8,13.7,0.4,0.1,13.7,1.6,0|1 piece:200
 Pineapple|ananas|50,0.5,11.7,0.1,0,9.9,1.4,0|1 slice:85
 Watermelon|wassermelone,melone|30,0.6,7.2,0.2,0,6.2,0.4,0|1 slice:280
 Lemon|zitrone,zitronen|29,1.1,6.5,0.3,0,2.5,2.8,0|1 piece:60
-Peach|pfirsich,nektarine,nectarine|39,0.9,8,0.3,0,8.4,1.5,0|1 piece:150
+Peach|pfirsich,nektarine,nectarine|39,0.9,8.4,0.3,0,8.4,1.5,0|1 piece:150
 Cherries|kirschen,kirsche,cherry|63,1.1,14,0.2,0,12.8,2.1,0|1 cup:140
 Dates, dried|datteln,dattel,dates|282,2.5,67,0.4,0,63,8,0.01|1 piece:8
 Raisins|rosinen|299,3.1,75,0.5,0.1,59,3.7,0.03|1 tbsp:10
@@ -1292,12 +1292,12 @@ Carrot|karotte,karotten,möhre,möhren,carrots|41,0.9,6.8,0.2,0,4.7,2.8,0.17|1 p
 Cucumber|gurke,salatgurke|15,0.7,3.1,0.1,0,1.7,0.5,0|1 piece:300
 Tomato|tomate,tomaten,tomatoes|18,0.9,2.7,0.2,0,2.6,1.2,0.01|1 piece:120
 Cherry tomatoes|cherrytomaten,kirschtomaten,cocktailtomaten|18,0.9,2.7,0.2,0,2.6,1.2,0.01|1 piece:15
-Bell pepper|paprika,pepper,peppers|31,1,4,0.3,0,4.2,2.1,0.01|1 piece:160
+Bell pepper|paprika,pepper,peppers|31,1,4.2,0.3,0,4.2,2.1,0.01|1 piece:160
 Onion|zwiebel,zwiebeln,onions|40,1.1,7.6,0.1,0,4.2,1.7,0.01|1 piece:110
 Garlic|knoblauch|149,6.4,31,0.5,0.1,1,2.1,0.04|1 clove:4
 Spinach|spinat,blattspinat|23,2.9,1.4,0.4,0.1,0.4,2.2,0.2|1 handful:30
 Lettuce|salat,kopfsalat,romana,eisbergsalat|15,1.2,1.5,0.2,0,1.2,1.5,0.02|1 handful:30
-Zucchini|courgette|17,1.2,2.1,0.3,0.1,2.5,1,0.02|1 piece:200
+Zucchini|courgette|17,1.2,2.5,0.3,0.1,2.5,1,0.02|1 piece:200
 Mushrooms|champignons,pilze,mushroom|22,3.1,2.3,0.3,0,2,1,0.01|1 piece:18
 Potato, raw|kartoffel,kartoffeln,potato,potatoes|77,2,15.3,0.1,0,0.8,2.2,0.02|1 piece:170
 Sweet potato, raw|süßkartoffel,süsskartoffel,sweet potatoes|86,1.6,17.1,0.1,0,4.2,3,0.14|1 piece:200
@@ -1309,8 +1309,8 @@ Kidney beans, cooked|kidneybohnen,kidney beans|127,8.7,16.4,0.5,0.1,0.3,6.4,0.01
 Chickpeas, cooked|kichererbsen,chickpeas|164,8.9,19.8,2.6,0.3,4.8,7.6,0.02|1 can (drained):240
 Lentils, dry|linsen,lentils|340,24.6,52.7,1.1,0.2,2,10.7,0.02|1 serving:60
 Lentils, cooked|linsen gekocht,lentils cooked|116,9,12.2,0.4,0.1,1.8,7.9,0.01|1 cup:200
-Asparagus|spargel|20,2.2,1.8,0.1,0,1.9,2.1,0.01|1 spear:20
-Eggplant|aubergine,aubergines|25,1,2.9,0.2,0,3.5,3,0.01|1 piece:300
+Asparagus|spargel|20,2.2,1.9,0.1,0,1.9,2.1,0.01|1 spear:20
+Eggplant|aubergine,aubergines|25,1,3.5,0.2,0,3.5,3,0.01|1 piece:300
 Rice, dry|reis,rice,basmati,jasmin,jasminreis,basmatireis,weißer reis|358,7,78,0.6,0.2,0.1,1.3,0.01|1 serving:75
 Rice, cooked|reis gekocht,rice cooked,gekochter reis|130,2.7,28,0.3,0.1,0.1,0.4,0|1 cup:160
 Brown rice, dry|naturreis,vollkornreis,brown rice|362,7.5,72.4,2.7,0.5,0.9,3.4,0.01|1 serving:75
@@ -1431,7 +1431,7 @@ function maybeUsda(q) {
 function usdaMap(fd) {
   const nv = {};
   (fd.foodNutrients || []).forEach((n) => { const k = String(n.nutrientNumber || (n.nutrient && n.nutrient.number) || ''); const v = n.value ?? n.amount; if (k && v != null && nv[k] == null) nv[k] = +v; });
-  const fi = nv['291'] ?? null; const cTot = nv['205']; const c = cTot != null ? Math.max(0, cTot - (fi || 0)) : 0;
+  const fi = nv['291'] ?? null; const cTot = nv['205']; const c = Math.max(cTot != null ? Math.max(0, cTot - (fi || 0)) : 0, nv['269'] || 0); // carbs never below sugar
   const p = nv['203'] ?? 0, f = nv['204'] ?? 0;
   let kcal = nv['208'] ?? nv['958'] ?? nv['957'] ?? null;
   if (kcal == null && cTot != null) kcal = p * 4 + c * 4 + f * 9 + (fi || 0) * 2;
@@ -1772,6 +1772,8 @@ const A = {
   saveFood() {
     syncDraft(); const d = ui.edit.draft;
     if (!d.name.trim()) { info('Please give the food a name.'); return 'keep'; }
+    if (hasV(num(d.su100, NaN)) && String(d.su100).trim() !== '' && num(d.su100) > num(d.c100)) { info('Sugar (' + num(d.su100) + ' g) is more than carbs (' + num(d.c100) + ' g). Sugar is part of carbs, so check the label.'); return 'keep'; }
+    if (String(d.sf100 ?? '').trim() !== '' && num(d.sf100) > num(d.f100)) { info('Saturated fat (' + num(d.sf100) + ' g) is more than fat (' + num(d.f100) + ' g). Saturated fat is part of fat, so check the label.'); return 'keep'; }
     const p = num(d.p100), c = num(d.c100), fa = num(d.f100);
     const kcal = String(d.kcal100).trim() === '' ? Math.round(p * 4 + c * 4 + fa * 9) : Math.round(num(d.kcal100));
     const vals = { name: d.name.trim(), brand: (d.brand || '').trim(), unit: d.unit, kcal100: kcal, p100: r1(p), c100: r1(c), f100: r1(fa), portions: d.portions.filter((x) => x.label.trim() && num(x.g) > 0).map((x) => ({ label: x.label.trim(), g: num(x.g) })), fav: !!d.fav, icon: d.icon };
