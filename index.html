@@ -18,7 +18,7 @@
   --bg:#090C13;--sheet:#0F1420;--surface:#141A27;--line:#1E2636;--line2:#2A3347;
   --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;--accent-bg:#14223D;--accent-line:#2B4A80;--accent-soft:#9CC2FF;--accent-line2:#23395F;
   --p:#34D3B0;--c:#F2A541;--f:#B79CFF;
-  --weight:#FFD25A;--cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
+  --weight:#FFD25A;--al:#E9B8C8;--cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
   --st:calc(env(safe-area-inset-top,0px) + 8px);--sb:var(--sbBase,env(safe-area-inset-bottom,0px));
 }
 /* Stash tracker has its own accent: pine green, same light/dark steps as the blue */
@@ -31,7 +31,7 @@ input{font-size:16px}
 html,body{overflow:hidden}
 /* #app is sized from the real window height (see fit()).
    The transform makes every fixed element (tab bar, sheets, toasts) move with it. */
-#app{position:fixed;top:0;left:0;right:0;height:var(--apph,100%);display:flex;flex-direction:column;transform:translateZ(0);overflow:hidden}
+#app{position:fixed;top:var(--appTop,0px);left:0;right:0;height:var(--apph,100%);display:flex;flex-direction:column;transform:translateZ(0);overflow:hidden}
 .titlebtn{border:0;background:none;padding:0;width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
 .modechip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px 0 10px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;white-space:nowrap}
 .menu{position:absolute;left:16px;right:16px;top:calc(var(--st) + 50px);border-radius:18px;background:var(--surface);padding:6px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
@@ -108,6 +108,9 @@ html,body{overflow:hidden}
 .wk{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .wk button{height:60px;border-radius:12px;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0}
 input[type=time],input[type=date]{color-scheme:dark}
+/* keyboard open: the app shrinks to the visible area, so nothing sits under the keyboard */
+html.kb .tabbar,html.kb .fab,html.kb .wbtn,html.kb .dock{display:none}
+html.kb .main{padding-bottom:40px}
 </style>
 </head>
 <body>
@@ -200,7 +203,10 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || freshState(); } catch (e) {
 }
 // ask the browser to keep this app's storage even when the phone is low on space
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* ignore */ }
+/* the first portion is always the biggest one (the pack or bottle you buy) */
+const sortPortions = (ps) => (ps || []).sort((a, b) => (num(b.g) || 0) - (num(a.g) || 0));
 function migrate(d) {
+  (d.foods || []).forEach((f) => sortPortions(f.portions));
   d.stash = d.stash || []; d.plan = d.plan || []; d.shop = d.shop || []; d.cart = d.cart || {}; d.weights = d.weights || [];
   // v3: entries belong to a meal group (gid). Older entries logged together (same time, e.g. a saved meal) become one group.
   (d.log || []).forEach((e) => { if (!e.gid) e.gid = 'g' + e.ts; });
@@ -219,8 +225,12 @@ const meal = (id) => S.meals.find((m) => m.id === id);
 /* advanced values: saturated fat, sugar, fibre, salt (g per 100 g, optional — null when unknown) */
 const EXK = [['sf', 'Sat. fat'], ['su', 'Sugar'], ['fi', 'Fibre'], ['sa', 'Salt']];
 const hasV = (v) => v != null && v !== '' && isFinite(v);
+/* drinks: alcohol is stored as % vol (al100); 1 ml of alcohol weighs 0.789 g and has 7 kcal per g */
+const ALC_D = 0.789, ALC_K = 7;
+const alG = (f) => (f && f.unit === 'ml' && f.al100 > 0 ? f.al100 * ALC_D : 0); // g alcohol per 100 ml
+const alcKcal = (abv) => abv * ALC_D * ALC_K; // kcal per 100 ml
 function nut(f, g) {
-  const k = g / 100; const r = { kcal: f.kcal100 * k, p: f.p100 * k, c: f.c100 * k, f: f.f100 * k };
+  const k = g / 100; const r = { kcal: f.kcal100 * k, p: f.p100 * k, c: f.c100 * k, f: f.f100 * k, al: alG(f) * k };
   EXK.forEach(([x]) => { const v = f[x + '100']; r[x] = hasV(v) ? v * k : null; });
   return r;
 }
@@ -246,8 +256,8 @@ function dayGroups(k) {
   S.log.filter((e) => keyOf(e.ts) === k).sort((a, b) => a.ts - b.ts).forEach((e) => { const id = e.gid || e.id; (by[id] = by[id] || []).push(e); });
   return Object.keys(by).map((id) => {
     const es = by[id]; const ts = es[0].ts; const named = es.find((x) => x.gn);
-    const t = { id, entries: es, ts, custom: named ? named.gn : null, name: named ? named.gn : autoName(ts), kcal: 0, p: 0, c: 0, f: 0 };
-    es.forEach((e) => { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; });
+    const t = { id, entries: es, ts, custom: named ? named.gn : null, name: named ? named.gn : autoName(ts), kcal: 0, p: 0, c: 0, f: 0, al: 0 };
+    es.forEach((e) => { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; t.al += e.al || 0; });
     return t;
   }).sort((a, b) => a.ts - b.ts);
 }
@@ -323,8 +333,8 @@ function targetFor(k) {
   return { period: p, type, ...t, kcal: kcalOf(t) };
 }
 function dayTotals(k) {
-  const t = { kcal: 0, p: 0, c: 0, f: 0, n: 0 };
-  S.log.forEach((e) => { if (keyOf(e.ts) === k) { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; t.n++; } });
+  const t = { kcal: 0, p: 0, c: 0, f: 0, al: 0, n: 0 };
+  S.log.forEach((e) => { if (keyOf(e.ts) === k) { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; t.al += e.al || 0; t.n++; } });
   return t;
 }
 function direction(kcal) { const m = S.maintenance; if (kcal < m * 0.95) return 'D'; if (kcal > m * 1.05) return 'S'; return 'M'; }
@@ -341,6 +351,7 @@ function logFood(f, g, ts, pu, noStash, grp) {
   if (grp && grp.gn) e.gn = grp.gn;
   EXK.forEach(([x]) => { if (n[x] != null) e[x] = n[x]; });
   if (pu) { e.pu = pu.label; e.pn = pu.n; }
+  if (n.al > 0) e.al = n.al;
   e.st = noStash ? null : takeStash(f, g);
   S.log.push(e);
   f.uses = (f.uses || 0) + 1; f.lastUsed = Date.now(); f.lastGrams = g;
@@ -391,11 +402,13 @@ function macroBars(tot, tgt) {
       <span class="num" style="font-size:13px">${Math.round(tot[k])}<span class="muted"> / ${Math.round(tgt[k])} g</span></span></div>`;
   }).join('')}</div>`;
 }
-function splitBar(e, maxK, h = 5) {
-  const pk = e.p * 4, ck = e.c * 4, fk = e.f * 9, s = pk + ck + fk || 1;
-  const w = maxK ? Math.max(2, e.kcal / maxK * 100) : 0;
+/* macro bar of an entry or meal: segments are grams of protein, carbs, fat (and alcohol); length = its grams vs the day's biggest meal */
+const macroG = (e) => e.p + e.c + e.f + (e.al || 0);
+function splitBar(e, maxG, h = 5) {
+  const s = macroG(e) || 1;
+  const w = maxG ? Math.max(2, macroG(e) / maxG * 100) : 0;
   return `<div class="track" aria-hidden="true" style="height:${h}px"><div style="width:${w}%;display:flex;border-radius:999px;overflow:hidden">
-    <span style="width:${pk / s * 100}%;background:var(--p)"></span><span style="width:${ck / s * 100}%;background:var(--c)"></span><span style="width:${fk / s * 100}%;background:var(--f)"></span></div></div>`;
+    <span style="width:${e.p / s * 100}%;background:var(--p)"></span><span style="width:${e.c / s * 100}%;background:var(--c)"></span><span style="width:${e.f / s * 100}%;background:var(--f)"></span>${e.al ? `<span style="width:${e.al / s * 100}%;background:var(--al)"></span>` : ''}</div></div>`;
 }
 function periodPill(tg) {
   const g = tg.period ? GOALS[tg.period.goal] : GOALS.maintain;
@@ -464,7 +477,7 @@ function renderDay(k, isToday) {
   const tg = targetFor(k), tot = dayTotals(k);
   const left = tg.kcal - tot.kcal, over = left < 0;
   const groups = dayGroups(k);
-  const maxK = Math.max(0, ...groups.map((g) => g.kcal));
+  const maxK = Math.max(0, ...groups.map(macroG));
   const fillA = over ? tg.kcal / tot.kcal * 100 : Math.min(100, tot.kcal / (tg.kcal || 1) * 100);
   const head = isToday
     ? `<div class="stack" style="gap:14px">${titleLine()}<div class="between" style="align-items:flex-end"><div class="stack" style="gap:4px"><span class="muted" style="font-size:13px;font-weight:500">${dLabel(k)}</span><h1 class="h1">Today</h1></div>${periodPill(tg)}</div></div>`
@@ -479,6 +492,7 @@ function renderDay(k, isToday) {
       <div class="track" style="height:10px"><span style="width:${fillA}%;background:var(--accent)"></span>${over ? `<span style="width:${100 - fillA}%;background:var(--bulk)"></span>` : ''}</div>
     </section>
     <section aria-label="Macros" class="stack" style="gap:12px;width:100%">${macroBars(tot, tg)}
+      ${tot.al > 0.05 ? `<span class="rowc muted num" style="gap:7px;font-size:12px"><span class="dot" style="width:6px;height:6px;background:var(--al)"></span>Alcohol ${fmtN(tot.al)} g · ${fmt(tot.al * ALC_K)} kcal, counted in your kcal</span>` : ''}
       ${ex ? `<div class="stack" style="gap:10px;padding-top:14px;margin-top:2px;border-top:1px solid var(--line)">${extrasGrid(ex)}${ex.none ? `<span class="muted" style="font-size:11px">${ex.none} of ${ex.n} ${ex.n === 1 ? 'entry has' : 'entries have'} no details yet · add them in Foods</span>` : ''}</div>` : ''}
       <span class="muted rowc" style="justify-content:center;gap:4px;font-size:11px;font-weight:500;margin-top:2px">${ui.tAdv ? 'Less' : 'Details'}${chevron(ui.tAdv)}</span>
     </section></button>
@@ -511,12 +525,37 @@ function rowMeal(m) {
       <span class="num" style="font-size:15px;font-weight:600">${fmt(n.kcal)}</span></button>
     <button type="button" class="plus" aria-label="Log meal ${esc(m.name)} now" data-a="quickMeal" data-id="${m.id}">${svg(I.plus, 18, 2.2)}</button></div>`;
 }
+/* "New food" row: at the end of every Quick add tab, not only after searching */
+function createRow() {
+  const sh = ui.sheet; const q = (sh.q || '').trim();
+  return `<div style="padding:18px 0 30px"><button type="button" class="btn-soft" data-a="createFood"><span style="width:26px;height:26px;border-radius:999px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center">${svg(I.plus, 14, 3)}</span>${sh.tab === 'search' && q ? 'Not found? Create food' : 'New food'}</button>${sh.pick === 'stash' ? `<button type="button" class="btn" data-a="otherItem" style="width:100%;margin-top:8px;font-weight:500">Not a food? Add other item${sh.tab === 'search' && q ? ' "' + esc(q) + '"' : ''}</button>` : ''}</div>`;
+}
+/* the meal Quick add is filling right now, so you can see what's already in it */
+function inMealHtml() {
+  const sh = ui.sheet; if (!sh || sh.pick) return '';
+  if (sh.tab === 'search' && (sh.q || '').trim()) return '';
+  const g = groupOf(sh.tgt || sh.gid); if (!g || !g.entries.length) return '';
+  return `<section aria-label="Already in this meal" class="card stack" style="padding:10px 14px 4px;margin:4px 0 8px">
+    <span class="between" style="font-size:12px"><span class="sec" style="font-size:11px">In ${esc(g.name)}</span><span class="muted num">${g.entries.length} ${g.entries.length === 1 ? 'item' : 'items'} · ${fmt(g.kcal)} kcal</span></span>
+    ${g.entries.map((e, i) => { const f = food(e.foodId); return `<button type="button" data-a="editEntry" data-id="${e.id}" class="between" style="border:0;${i ? 'border-top:1px solid var(--line);' : ''}background:none;padding:8px 0;text-align:left;width:100%;min-height:42px;gap:10px">
+      <span class="rowc" style="gap:7px;min-width:0;font-size:14px;font-weight:500">${f && f.fav ? icon(f.icon, 15, 'var(--accent)') : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span><span class="muted num" style="font-size:12px;font-weight:400;white-space:nowrap">${e.pu ? esc(countLabel(e.pu, e.pn)) : fmt(e.g) + ' ' + unitOf(f)}</span></span>
+      <span class="num muted" style="font-size:13px">${fmt(e.kcal)}</span></button>`; }).join('')}</section>`;
+}
+function sheetBodyHtml() { const sh = ui.sheet; return inMealHtml() + (sh.tab === 'search' ? searchResults() : sheetList() + createRow()); }
 function sheetList() {
   const sh = ui.sheet; const pick = !!sh.pick;
+  if (sh.tab === 'az') {
+    const items = [...S.foods.map((f) => ({ t: 'f', o: f })), ...(pick ? [] : S.meals.filter((m) => m.items.length).map((m) => ({ t: 'm', o: m })))]
+      .sort((a, b) => norm(a.o.name).localeCompare(norm(b.o.name)));
+    if (!items.length) return `<div class="empty">Your food library is empty.</div>`;
+    let html = '', L = '';
+    items.forEach((x) => { const c = (norm(x.o.name)[0] || '#').toUpperCase(); const l = /[A-Z]/.test(c) ? c : '#'; if (l !== L) { L = l; html += `<div style="padding:12px 0 2px;font-size:13px;font-weight:700;color:var(--accent)">${l}</div>`; } html += x.t === 'f' ? rowFood(x.o, pick) : rowMeal(x.o); });
+    return html;
+  }
   if (sh.tab === 'recent') {
     const items = [...S.foods.filter((f) => f.lastUsed).map((f) => ({ t: 'f', o: f, u: f.lastUsed })), ...(pick ? [] : S.meals.filter((m) => m.lastUsed).map((m) => ({ t: 'm', o: m, u: m.lastUsed })))]
       .sort((a, b) => b.u - a.u).slice(0, 30);
-    if (!items.length) return `<div class="empty">No recent foods yet.<br>Use <b>Search</b> to find or create your first food.</div>`;
+    if (!items.length) return `<div class="empty">No recent foods yet.<br>Use <b>Search</b> or <b>New food</b> below.</div>`;
     return items.map((x) => (x.t === 'f' ? rowFood(x.o, pick) : rowMeal(x.o))).join('');
   }
   if (sh.tab === 'favs') {
@@ -529,7 +568,7 @@ function sheetList() {
 }
 function searchResults() {
   const sh = ui.sheet; const q = (sh.q || '').trim().toLowerCase(); const pick = !!sh.pick;
-  if (!q) return `<div class="empty">Type to search your foods${navigator.onLine ? ' and Open Food Facts' : ''}.</div>`;
+  if (!q) return `<div class="empty">Type to search your foods${navigator.onLine ? ' and Open Food Facts' : ''}.</div>` + createRow();
   const mine = S.foods.filter((f) => (f.name + ' ' + (f.brand || '')).toLowerCase().includes(q)).sort((a, b) => (b.uses || 0) - (a.uses || 0));
   const meals = pick ? [] : S.meals.filter((m) => m.name.toLowerCase().includes(q));
   let html = '';
@@ -540,22 +579,22 @@ function searchResults() {
   else if (off.state === 'error') html += `<div class="empty">Couldn't reach Open Food Facts.<br>Check your connection or create the food yourself.</div>`;
   else if (!off.items.length) html += `<div class="empty">No results.</div>`;
   else html += off.items.map((p, i) => `<button type="button" class="item" data-a="offPick" data-i="${i}"><span class="stack" style="flex:1;min-width:0"><span class="nm"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span></span><span class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([p.brand, p.qty].filter(Boolean).join(' · ') || 'Open Food Facts')}</span></span><span class="stack" style="align-items:flex-end"><span class="num" style="font-size:15px;font-weight:600">${fmt(p.kcal100)}</span><span class="muted" style="font-size:11px;margin-top:3px">per 100 ${p.unit}</span></span></button>`).join('');
-  html += `<div style="padding:18px 0 30px"><button type="button" class="btn-soft" data-a="createFood"><span style="width:26px;height:26px;border-radius:999px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center">${svg(I.plus, 14, 3)}</span>Not found? Create food</button>${pick && ui.sheet.pick === 'stash' ? `<button type="button" class="btn" data-a="otherItem" style="width:100%;margin-top:8px;font-weight:500">Not a food? Add other item${q ? ' "' + esc(sh.q.trim()) + '"' : ''}</button>` : ''}</div>`;
+  html += createRow();
   return html;
 }
 function renderSheet() {
   const sh = ui.sheet;
-  const tabs = [['recent', 'Recent'], ['favs', 'Favorites'], ['search', 'Search']];
+  const tabs = [['az', 'A–Z'], ['recent', 'Recent'], ['favs', 'Favorites'], ['search', 'Search']];
   return `<div class="layer" style="z-index:40"><div class="backdrop" data-a="closeSheet"></div><div class="sheet" role="dialog" aria-label="Add food">
     <div class="grab"></div>
     <div class="stack" style="gap:14px;padding:10px 20px 6px">
       ${sh.out ? `<span class="muted" style="font-size:12px;margin-bottom:-8px">Eating out · nothing is taken from Stash</span>` : ''}
       <div class="between"><h1 style="margin:0;font-size:22px;font-weight:700">${sh.pick === 'stash' ? 'Add to Stash' : sh.pick ? 'Add to meal' : sh.date === todayKey() ? 'Add food' : 'Add to ' + dShort(sh.date)}</h1>${!sh.pick && S.stash.length ? `<button type="button" role="switch" aria-checked="${!!sh.out}" class="chip ${sh.out ? 'on' : ''}" data-a="toggleOut" style="height:32px;padding:0 12px;margin-left:auto;display:flex;align-items:center;gap:6px;color:${sh.out ? 'var(--text)' : 'var(--muted)'}">${sh.out ? svg(I.check, 14, 2.6) : ''}Eating out</button>` : ''}<button type="button" class="iconbtn" aria-label="Scan barcode" data-a="scanSheet" style="color:var(--accent);${!sh.pick && S.stash.length ? '' : 'margin-left:auto'}">${svg(I.barcode, 22, 1.9)}</button>${!sh.pick && sh.n ? `<button type="button" class="btn" data-a="closeSheet" style="margin-right:-10px;font-size:16px">Done</button>` : `<button type="button" class="iconbtn" aria-label="Close" data-a="closeSheet" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button>`}</div>
       ${sh.pick ? '' : targetChips()}
-      <div class="seg" role="tablist" style="grid-template-columns:repeat(3,1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
+      <div class="seg" role="tablist" style="grid-template-columns:repeat(4,1fr)">${tabs.map(([k, l]) => `<button type="button" role="tab" class="${sh.tab === k ? 'on' : ''}" data-a="sheetTab" data-k="${k}">${l}</button>`).join('')}</div>
       ${sh.tab === 'search' ? `<label class="search">${svg(I.search, 18)}<input id="sheetQ" type="search" placeholder="Search foods" value="${esc(sh.q || '')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
     </div>
-    <div class="scroll" data-scroll="sheet" style="padding:0 20px calc(var(--sb) + 30px)"><div id="sheetBody">${sh.tab === 'search' ? searchResults() : sheetList()}</div></div>
+    <div class="scroll" data-scroll="sheet" style="padding:0 20px calc(var(--sb) + 30px)"><div id="sheetBody">${sheetBodyHtml()}</div></div>
   </div></div>`;
 }
 
@@ -726,13 +765,16 @@ function renderFoodEdit() {
         <div class="stack" style="flex:1;gap:6px;min-width:0"><input data-d="name" value="${esc(d.name)}" placeholder="Food name" aria-label="Food name" style="border:0;outline:none;background:none;padding:0;font-size:24px;font-weight:700;width:100%"><input data-d="brand" value="${esc(d.brand || '')}" placeholder="Brand (optional)" aria-label="Brand" style="border:0;outline:none;background:none;padding:0;font-size:14px;color:var(--muted);width:100%"></div>
         <button type="button" class="iconbtn" aria-label="${d.fav ? 'Remove from favorites' : 'Add to favorites'}" data-a="draftFav" style="margin-right:-10px;color:${d.fav ? 'var(--accent)' : 'var(--muted)'}"><svg width="24" height="24" viewBox="0 0 24 24" fill="${d.fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">${I.star}</svg></button>
       </div>
+      ${ui.edit.review ? `<section class="card stack" aria-label="Check the values" style="gap:4px;background:var(--accent-bg);border:1px solid var(--accent-line);margin-top:-8px"><span style="font-size:14px;font-weight:600">Check against the label</span><span class="muted" style="font-size:12px;line-height:1.45">Filled in from Open Food Facts, where values are added by volunteers and can be a little off or from an older recipe. Fix anything that differs from the pack, then Save.</span></section>` : ''}
       <div id="sugBox" style="margin-top:-8px">${sugHtml()}</div>
       ${d.code ? `<span class="muted rowc" style="gap:6px;font-size:12px;margin-top:-12px">${svg(I.barcode, 14, 1.9)}Barcode ${esc(d.code)}</span>` : ''}
-      <section class="stack" style="gap:10px"><div class="between"><h2 class="sec">Nutrition per 100 ${u}</h2>
-        <div class="seg" style="grid-template-columns:1fr 1fr;padding:2px;width:96px"><button type="button" style="height:28px" class="${u === 'g' ? 'on' : ''}" data-a="draftUnit" data-k="g">g</button><button type="button" style="height:28px" class="${u === 'ml' ? 'on' : ''}" data-a="draftUnit" data-k="ml">ml</button></div></div>
+      <div class="seg" role="radiogroup" aria-label="Food or drink" style="grid-template-columns:1fr 1fr;margin-top:-6px"><button type="button" role="radio" aria-checked="${u === 'g'}" class="${u === 'g' ? 'on' : ''}" data-a="draftUnit" data-k="g">Food · g</button><button type="button" role="radio" aria-checked="${u === 'ml'}" class="${u === 'ml' ? 'on' : ''}" data-a="draftUnit" data-k="ml">Drink · ml</button></div>
+      ${u === 'ml' ? `<section class="stack" aria-label="Alcohol" style="gap:8px"><label class="between" style="min-height:56px;padding:0 16px;border-radius:14px;background:var(--surface)"><span class="rowc" style="gap:8px;font-size:15px"><span class="dot" style="width:6px;height:6px;background:var(--al)"></span>Alcohol</span><span class="rowc" style="gap:6px"><input data-d="al100" value="${hasV(d.al100) ? esc(d.al100) : ''}" inputmode="decimal" placeholder="0" aria-label="Alcohol in percent by volume" style="width:64px;border:0;outline:none;background:none;font-size:17px;font-weight:600;text-align:right;padding:0"><span class="muted" style="font-size:13px">% vol</span></span></label>
+        <span id="alHint" class="muted" style="font-size:12px;line-height:1.45">${alHint(d)}</span></section>` : ''}
+      <section class="stack" style="gap:10px"><h2 class="sec">Nutrition per 100 ${u}</h2>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
           ${[['kcal', 'kcal100', '--accent'], ['Protein', 'p100', '--p'], ['Carbs', 'c100', '--c'], ['Fat', 'f100', '--f']].map(([l, k, c]) => `<label class="field" style="padding:10px"><span><span class="dot" style="width:6px;height:6px;background:var(${c})"></span>${l}</span><input data-d="${k}" value="${d[k] === '' || d[k] == null ? '' : esc(d[k])}" inputmode="decimal" placeholder="${k === 'kcal100' ? 'auto' : '0'}" aria-label="${l} per 100 ${u}"></label>`).join('')}
-        </div><span class="muted" style="font-size:12px">Leave kcal empty to calculate it from the macros.</span>
+        </div><span class="muted" style="font-size:12px">Leave kcal empty to calculate it from the macros${u === 'ml' ? ' and alcohol' : ''}.</span>
         <h2 class="sec" style="margin-top:8px">Details per 100 ${u} · optional</h2>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
           ${EXK.map(([x, l]) => { const k = x + '100'; return `<label class="field" style="padding:10px"><span>${l}</span><input data-d="${k}" value="${hasV(d[k]) ? esc(d[k]) : ''}" inputmode="decimal" placeholder="–" aria-label="${l} per 100 ${u}"></label>`; }).join('')}
@@ -746,6 +788,12 @@ function renderFoodEdit() {
     </div></div></div></div>`;
 }
 
+/* alcohol line in the food editor: grams and kcal it adds per 100 ml */
+function alHint(d) {
+  const abv = num(d.al100); if (!(abv > 0)) return 'For beer, wine and spirits: enter the % vol from the label. Alcohol has 7 kcal per gram and counts toward your daily kcal.';
+  const mk = Math.round(num(d.p100) * 4 + num(d.c100) * 4 + num(d.f100) * 9); const ak = Math.round(alcKcal(abv));
+  return fmtN(abv * ALC_D) + ' g alcohol = ' + ak + ' kcal per 100 ml. With the macros that makes ' + (mk + ak) + ' kcal; labels usually already include it.';
+}
 /* ---------- Meal editor ---------- */
 function renderMealEdit() {
   const d = ui.edit.draft; const isNew = !ui.edit.id;
@@ -956,6 +1004,13 @@ function sTile(it, size = 40) {
   const ic = f && f.fav && f.icon ? icon(f.icon, Math.round(size * 0.52)) : `<span style="font-size:${Math.round(size * 0.4)}px;font-weight:700;color:var(--muted)">${esc((sName(it)[0] || '?').toUpperCase())}</span>`;
   return `<span class="tile" style="width:${size}px;height:${size}px">${ic}</span>`;
 }
+/* the bar under a Stash item: how full the open pack/bottle is (pack size = Stash pack, else the food's first, biggest portion) */
+function stashPct(it) {
+  if (isOut(it)) return 0;
+  const f = it.foodId && food(it.foodId); const size = hasPack(it) ? it.pack.size : f && f.portions && f.portions[0] && f.portions[0].g > 0 ? f.portions[0].g : 0;
+  if (size > 0) { const rest = it.amount % size; return rest < 0.005 * size ? 100 : Math.max(2, rest / size * 100); }
+  return it.full > 0 ? Math.min(100, it.amount / it.full * 100) : 100;
+}
 const packOrBase = (a, u, pack) => (pack && pack.size > 0 ? fmtN(a / pack.size) + ' ' + plural(pack.label, a / pack.size) : fmtU(a, u));
 
 /* ---------- Stash tab ---------- */
@@ -965,7 +1020,7 @@ function stashListHtml() {
   if (!S.stash.length) return `<div class="empty">Your stash is empty.<br>Tap <b style="color:var(--accent)">+</b> to add what you have at home.<br><span style="font-size:13px">Food you log in the Calorie tracker is taken out automatically.</span></div>`;
   if (!all.length) return `<div class="empty">Nothing matches.</div>`;
   const row = (it) => {
-    const out = isOut(it), low = isLow(it) && !out; const pct = it.full > 0 ? Math.min(100, it.amount / it.full * 100) : (out ? 0 : 100);
+    const out = isOut(it), low = isLow(it) && !out; const pct = stashPct(it);
     return `<button type="button" class="item" data-a="editStash" data-id="${it.id}" style="min-height:68px;opacity:${out ? 0.55 : 1}">${sTile(it)}
       <span class="stack" style="flex:1;min-width:0;gap:7px"><span class="between" style="align-items:baseline"><span class="nm" style="min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sName(it))}</span>${low ? `<span class="badge" style="background:#3A2E1A;color:#F2C27A">Low</span>` : ''}</span>
         <span class="num" style="font-size:15px;font-weight:600;white-space:nowrap">${out ? '<span class="muted" style="font-weight:500">Out</span>' : esc(amtMain(it))}</span></span>
@@ -1227,8 +1282,8 @@ function syncDraft() {
 }
 function openFoodEdit(f, opts = {}) {
   ui.edit = { type: 'food', id: f ? f.id : null, z: opts.z, from: opts.from,
-    draft: f ? JSON.parse(JSON.stringify({ name: f.name, brand: f.brand || '', unit: f.unit || 'g', kcal100: f.kcal100, p100: f.p100, c100: f.c100, f100: f.f100, sf100: f.sf100, su100: f.su100, fi100: f.fi100, sa100: f.sa100, portions: f.portions, fav: !!f.fav, icon: f.icon || null, code: f.code || null }))
-      : { name: opts.name || '', brand: '', unit: 'g', kcal100: '', p100: '', c100: '', f100: '', sf100: '', su100: '', fi100: '', sa100: '', portions: [], fav: false, icon: null } };
+    draft: f ? JSON.parse(JSON.stringify({ name: f.name, brand: f.brand || '', unit: f.unit || 'g', al100: hasV(f.al100) ? f.al100 : '', kcal100: f.kcal100, p100: f.p100, c100: f.c100, f100: f.f100, sf100: f.sf100, su100: f.su100, fi100: f.fi100, sa100: f.sa100, portions: sortPortions([...(f.portions || [])]), fav: !!f.fav, icon: f.icon || null, code: f.code || null }))
+      : { name: opts.name || '', brand: '', unit: 'g', al100: '', kcal100: '', p100: '', c100: '', f100: '', sf100: '', su100: '', fi100: '', sa100: '', portions: [], fav: false, icon: null } };
 }
 function openPortion(f, opts = {}) {
   const date = opts.date || (ui.sheet ? ui.sheet.date : todayKey());
@@ -1262,7 +1317,7 @@ function offSearch(q) {
       const items = (data.products || []).map(offMap).filter((p) => p.name && p.kcal100 != null);
       ui.off = { q, state: 'done', items };
     } catch (e) { if (seq === offSeq) ui.off = { q, state: 'error', items: [] }; }
-    if (ui.sheet && ui.sheet.tab === 'search') { const b = document.getElementById('sheetBody'); if (b) b.innerHTML = searchResults(); }
+    if (ui.sheet && ui.sheet.tab === 'search') { const b = document.getElementById('sheetBody'); if (b) b.innerHTML = sheetBodyHtml(); }
   }, 450);
 }
 
@@ -1387,14 +1442,20 @@ Tomato passata|passata,passierte tomaten,tomatensauce|30,1.4,5,0.2,0,4.5,1.2,0.0
 Coconut milk|kokosmilch,coconut milk|180,1.6,3,18,16,2,0.6,0.05|1 can:400|ml
 Coffee, black|kaffee,coffee,espresso,americano|2,0.1,0,0,0,0,0,0|1 cup:200|ml
 Orange juice|orangensaft,o-saft,orange juice|45,0.7,10,0.2,0,9,0.2,0|1 glass:250|ml
-Beer|bier,pils,beer|42,0.5,3,0,0,0,0,0.01|1 bottle:500|ml
+Beer|bier,pils,beer,helles|42,0.5,3,0,0,0,0,0.01|1 bottle:500|ml|4.9
+Wheat beer|weizen,weißbier,weissbier,hefeweizen|46,0.5,3.5,0,0,0,0,0.01|1 bottle:500|ml|5.4
+Radler|alster,radler,shandy|40,0.3,7,0,0,6.5,0,0.01|1 bottle:500|ml|2.5
+Alcohol-free beer|alkoholfreies bier,alkoholfrei,0.0|26,0.4,5.6,0,0,3,0,0.01|1 bottle:500|ml
 Cola|coca cola,coke,cola|42,0,10.6,0,0,10.6,0,0.01|1 can:330|ml
-Red wine|rotwein,wein,wine|85,0.1,2.6,0,0,0.6,0,0.01|1 glass:200|ml
+Red wine|rotwein,wein,wine|85,0.1,2.6,0,0,0.6,0,0.01|1 glass:200|ml|13
+White wine|weißwein,weisswein,white wine,rosé,rose|82,0.1,2.6,0,0,1,0,0.01|1 glass:200|ml|12
+Sparkling wine|sekt,prosecco,champagner,champagne,cava|80,0.2,3,0,0,3,0,0.01|1 glass:100|ml|11
+Spirits 40%|vodka,wodka,gin,rum,whisky,whiskey,tequila,schnaps|221,0,0,0,0,0,0,0|1 shot:20|ml|40
 `;
 const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ß/g, 'ss').trim();
 const GENERIC = GENERIC_SRC.trim().split('\n').map((l) => {
-  const [name, al, v, pt, unit] = l.split('|'); const n = v.split(',').map(Number);
-  return { src: 'builtin', name, keys: [name, ...al.split(',')].map(norm), unit: unit || 'g', kcal100: n[0], p100: n[1], c100: n[2], f100: n[3], sf100: n[4], su100: n[5], fi100: n[6], sa100: n[7],
+  const [name, al, v, pt, unit, abv] = l.split('|'); const n = v.split(',').map(Number);
+  return { src: 'builtin', name, al100: abv ? +abv : null, keys: [name, ...al.split(',')].map(norm), unit: unit || 'g', kcal100: n[0], p100: n[1], c100: n[2], f100: n[3], sf100: n[4], su100: n[5], fi100: n[6], sa100: n[7],
     portions: (pt || '').split(';').filter(Boolean).map((x) => { const i = x.lastIndexOf(':'); return { label: x.slice(0, i), g: +x.slice(i + 1) }; }) };
 });
 function genericMatches(q) {
@@ -1488,14 +1549,14 @@ function sugHtml() {
     }).join('')}</section>`;
 }
 function refreshSug() { const b = document.getElementById('sugBox'); if (b) b.innerHTML = sugHtml(); }
-function applySug(x) {
+function applySug(x, quiet) {
   const e = ui.edit; const d = e.draft;
   d.unit = x.unit === 'ml' ? 'ml' : 'g';
-  ['kcal100', 'p100', 'c100', 'f100', 'sf100', 'su100', 'fi100', 'sa100'].forEach((k) => { d[k] = hasV(x[k]) ? x[k] : ''; });
-  (x.portions || []).forEach((p) => { if (!d.portions.some((q) => unitName(q.label).toLowerCase() === unitName(p.label).toLowerCase())) d.portions.push({ label: p.label, g: p.g }); });
+  ['kcal100', 'p100', 'c100', 'f100', 'sf100', 'su100', 'fi100', 'sa100', 'al100'].forEach((k) => { d[k] = hasV(x[k]) ? x[k] : ''; });
+  (x.portions || []).forEach((p) => { if (!d.portions.some((q) => unitName(q.label).toLowerCase() === unitName(p.label).toLowerCase())) d.portions.push({ label: p.label, g: p.g }); }); sortPortions(d.portions);
   if (x.src === 'off') { if (!d.name.trim()) d.name = x.name; if (!(d.brand || '').trim()) d.brand = x.brand || ''; d.code = x.code; }
   d.src = x.src; e.sugDone = true; e.offSug = null;
-  toast('Filled in from ' + SRC[x.src] + ' · edit anything that looks off');
+  if (!quiet) toast('Filled in from ' + SRC[x.src] + ' · edit anything that looks off');
 }
 
 /* ---------- Open Food Facts helpers ---------- */
@@ -1506,6 +1567,7 @@ function offMap(p) {
   const qty = p.quantity || ''; const sv = p.serving_size || '';
   const it = { src: 'off', code: p.code, name: (p.product_name_de || p.product_name || p.product_name_en || '').trim(), brand: (p.brands || '').split(',')[0].trim(), qty, serving: sv,
     unit: /\d\s*(ml|l|cl)\b/i.test(qty) ? 'ml' : 'g', kcal100: kcal == null || !isFinite(kcal) ? null : Math.round(kcal), p100: r1(+n.proteins_100g || 0), c100: r1(+n.carbohydrates_100g || 0), f100: r1(+n.fat_100g || 0) };
+  const abv = +(n.alcohol_100g ?? n.alcohol_value ?? n.alcohol); if (abv > 0 && abv <= 100 && it.unit === 'ml') it.al100 = r1(abv);
   [['sf100', 'saturated-fat_100g'], ['su100', 'sugars_100g'], ['fi100', 'fiber_100g'], ['sa100', 'salt_100g']].forEach(([k, o]) => { const v = n[o]; it[k] = v != null && v !== '' && isFinite(+v) ? Math.round(+v * 100) / 100 : null; });
   const portions = []; const pk = parseQty(qty); const s1 = parseQty(sv);
   if (pk) portions.push({ label: '1 pack', g: pk }); if (s1 && s1 !== pk) portions.push({ label: '1 serving', g: s1 });
@@ -1513,7 +1575,7 @@ function offMap(p) {
   return it;
 }
 function foodFromOff(p) {
-  const f = { id: uid(), code: p.code, source: 'off', name: p.name || 'Product ' + p.code, brand: p.brand, unit: p.unit, kcal100: p.kcal100 || 0, p100: p.p100, c100: p.c100, f100: p.f100, portions: p.portions.map((x) => ({ ...x })), fav: false, icon: null, uses: 0 };
+  const f = { id: uid(), code: p.code, source: 'off', name: p.name || 'Product ' + p.code, brand: p.brand, unit: p.unit, kcal100: p.kcal100 || 0, p100: p.p100, c100: p.c100, f100: p.f100, portions: sortPortions(p.portions.map((x) => ({ ...x }))), al100: p.al100 || null, fav: false, icon: null, uses: 0 };
   EXK.forEach(([x]) => { f[x + '100'] = p[x + '100']; });
   return f;
 }
@@ -1540,6 +1602,13 @@ async function getDetector() {
   try { if ('BarcodeDetector' in window) { const ok = await window.BarcodeDetector.getSupportedFormats(); if (ok.includes('ean_13')) return (DET = new window.BarcodeDetector({ formats: fm })); } } catch (e) { /* use the polyfill */ }
   const m = await import('https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/es/ponyfill.min.js');
   return (DET = new m.BarcodeDetector({ formats: fm }));
+}
+/* GS1 check digit (EAN-8, EAN-13, UPC-A, UPC-E expanded codes are read as digits with a check digit at the end) */
+function eanOk(code) {
+  if (code.length < 8 || (code.length === 8 && /^[01]/.test(code))) return true; // UPC-E: check digit works differently, rely on the double read
+  const d = code.split('').map(Number); const chk = d.pop(); let sum = 0;
+  d.reverse().forEach((x, i) => { sum += x * (i % 2 === 0 ? 3 : 1); });
+  return (10 - (sum % 10)) % 10 === chk;
 }
 function closeScan() { if (!SCAN) return; clearTimeout(SCAN.timer); if (SCAN.stream) SCAN.stream.getTracks().forEach((t) => t.stop()); SCAN.el.remove(); SCAN = null; }
 function gotCode(code) { if (!SCAN || SCAN.done) return; SCAN.done = true; const fn = SCAN.onCode; closeScan(); fn(code); }
@@ -1569,7 +1638,13 @@ async function openScan(onCode) {
     st('Hold the barcode inside the frame');
     const tick = async () => {
       if (!SCAN || SCAN.el !== el || SCAN.done) return;
-      try { if (v.readyState >= 2) { const r = await det.detect(v); const c = r.find((x) => /^\d{8,14}$/.test(x.rawValue)); if (c) { gotCode(c.rawValue); return; } } } catch (e) { /* keep trying */ }
+      try {
+        if (v.readyState >= 2) {
+          // only accept a code with a valid check digit that was read the same way twice in a row (avoids misreads)
+          const r = await det.detect(v); const c = r.map((x) => x.rawValue).find((x) => /^\d{8,14}$/.test(x) && eanOk(x));
+          if (c && c === SCAN.last) { gotCode(c); return; } SCAN.last = c || SCAN.last;
+        }
+      } catch (e) { /* keep trying */ }
       if (SCAN && SCAN.el === el) SCAN.timer = setTimeout(tick, 150);
     };
     tick();
@@ -1590,9 +1665,15 @@ async function codeToSheet(code) {
       ui.sheet.q = ''; A.createFood(); const d = ui.edit.draft; d.code = code; if (it) { d.name = it.name; d.brand = it.brand; }
       info("This barcode isn't in Open Food Facts yet. Enter the values from the label; the code is saved, so the next scan finds it."); render(); return;
     }
-    f = foodFromOff(it); S.foods.push(f); save();
+    reviewOff(it); render(); return;
   }
   pickFood(f); render();
+}
+/* a new product from Open Food Facts opens in the food editor first, so its values can be checked against the label */
+function reviewOff(it) {
+  ui.sheet.q = ''; A.createFood(); const e = ui.edit; const d = e.draft;
+  applySug(it, true); d.name = it.name || ''; d.brand = it.brand || ''; d.code = it.code;
+  e.review = true; ui.toast = null;
 }
 /* a scanned code in the food editor: offer the product's values as a suggestion */
 async function codeToEdit(code) {
@@ -1672,9 +1753,8 @@ const A = {
   },
   offPick(el) {
     const p = ui.off.items[+el.dataset.i];
-    let f = S.foods.find((x) => x.code && x.code === p.code);
-    if (!f) { f = foodFromOff(p); S.foods.push(f); save(); }
-    pickFood(f);
+    const f = S.foods.find((x) => x.code && x.code === p.code);
+    if (f) pickFood(f); else reviewOff(p);
   },
   scanSheet() { openScan(codeToSheet); },
   scanEdit() { syncDraft(); openScan(codeToEdit); },
@@ -1720,7 +1800,7 @@ const A = {
     const f = food(ui.portion.foodId); const label = '1 ' + unitName(name);
     const ex = f.portions.find((p) => unitName(p.label).toLowerCase() === unitName(name).toLowerCase());
     if (ex) ex.g = g; else f.portions.push({ label, g });
-    save(); ui.newPortion = null; ui.portion.unit = ex ? ex.label : label; ui.portion.val = '1'; ui.portion.fresh = true;
+    sortPortions(f.portions); save(); ui.newPortion = null; ui.portion.unit = ex ? ex.label : label; ui.portion.val = '1'; ui.portion.fresh = true;
   },
   savePortion() {
     const pt = ui.portion; const f = food(pt.foodId); const g = ptGrams(pt, f); if (!(g > 0)) return;
@@ -1775,8 +1855,16 @@ const A = {
     if (hasV(num(d.su100, NaN)) && String(d.su100).trim() !== '' && num(d.su100) > num(d.c100)) { info('Sugar (' + num(d.su100) + ' g) is more than carbs (' + num(d.c100) + ' g). Sugar is part of carbs, so check the label.'); return 'keep'; }
     if (String(d.sf100 ?? '').trim() !== '' && num(d.sf100) > num(d.f100)) { info('Saturated fat (' + num(d.sf100) + ' g) is more than fat (' + num(d.f100) + ' g). Saturated fat is part of fat, so check the label.'); return 'keep'; }
     const p = num(d.p100), c = num(d.c100), fa = num(d.f100);
-    const kcal = String(d.kcal100).trim() === '' ? Math.round(p * 4 + c * 4 + fa * 9) : Math.round(num(d.kcal100));
-    const vals = { name: d.name.trim(), brand: (d.brand || '').trim(), unit: d.unit, kcal100: kcal, p100: r1(p), c100: r1(c), f100: r1(fa), portions: d.portions.filter((x) => x.label.trim() && num(x.g) > 0).map((x) => ({ label: x.label.trim(), g: num(x.g) })), fav: !!d.fav, icon: d.icon };
+    const abv = d.unit === 'ml' ? Math.min(100, Math.max(0, num(d.al100))) : 0;
+    const full = Math.round(p * 4 + c * 4 + fa * 9 + alcKcal(abv));
+    let kcal = String(d.kcal100).trim() === '' ? full : Math.round(num(d.kcal100));
+    // entered kcal that leave out the alcohol: offer the full number once
+    if (abv > 0 && kcal < full - Math.max(5, full * 0.1) && !ui.edit.alcAsked) {
+      ui.edit.alcAsked = true;
+      ask(kcal + ' kcal per 100 ml looks like it leaves out the alcohol (' + Math.round(alcKcal(abv)) + ' kcal). Use ' + full + ' kcal instead? Tap Save again to keep ' + kcal + '.', 'Use ' + full + ' kcal', () => { ui.edit.draft.kcal100 = String(full); }, false);
+      return 'keep';
+    }
+    const vals = { name: d.name.trim(), brand: (d.brand || '').trim(), unit: d.unit, al100: abv > 0 ? r1(abv) : null, kcal100: kcal, p100: r1(p), c100: r1(c), f100: r1(fa), portions: sortPortions(d.portions.filter((x) => x.label.trim() && num(x.g) > 0).map((x) => ({ label: x.label.trim(), g: num(x.g) }))), fav: !!d.fav, icon: d.icon };
     EXK.forEach(([x]) => { const v = String(d[x + '100'] ?? '').trim(); vals[x + '100'] = v === '' ? null : Math.round(num(v) * 100) / 100; });
     let f;
     if (d.code) vals.code = d.code;
@@ -1879,7 +1967,7 @@ const A = {
     const grew = amount > it.amount + 0.0001;
     Object.assign(it, { name: f ? '' : d.name.trim(), unit: f ? unitOf(f) : d.unit, pack, min, amount, updated: Date.now() });
     if (grew || !(it.full > 0) || it.full < amount) it.full = amount;
-    if (f && pack && !f.portions.some((x) => Math.abs(x.g - pack.size) < 0.01)) f.portions.push({ label: '1 ' + pack.label, g: pack.size });
+    if (f && pack && !f.portions.some((x) => Math.abs(x.g - pack.size) < 0.01)) { f.portions.push({ label: '1 ' + pack.label, g: pack.size }); sortPortions(f.portions); }
     save(); ui.edit = null; toast(sName(it) + ' · ' + (isOut(it) ? 'out' : amtMain(it)) + ' in Stash');
   },
   deleteStash() { const it = sItem(ui.edit.id); ask('Remove "' + sName(it) + '" from Stash?', 'Remove', () => { S.stash = S.stash.filter((x) => x !== it); delete S.cart['s:' + it.id]; save(); ui.edit = null; }); },
@@ -1972,8 +2060,9 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('input', (ev) => {
   const el = ev.target;
-  if (el.id === 'sheetQ') { ui.sheet.q = el.value; offSearch(el.value.trim().toLowerCase()); document.getElementById('sheetBody').innerHTML = searchResults(); }
+  if (el.id === 'sheetQ') { ui.sheet.q = el.value; offSearch(el.value.trim().toLowerCase()); document.getElementById('sheetBody').innerHTML = sheetBodyHtml(); }
   else if (el.dataset.d === 'name' && ui.edit && ui.edit.type === 'food') { ui.edit.draft.name = el.value; refreshSug(); }
+  else if (ui.edit && ui.edit.type === 'food' && /^(al100|p100|c100|f100)$/.test(el.dataset.d || '')) { ui.edit.draft[el.dataset.d] = el.value; const h = document.getElementById('alHint'); if (h) h.textContent = alHint(ui.edit.draft); }
   else if (el.id === 'foodsQ') { ui.foodsQ = el.value; document.getElementById('foodsList').innerHTML = foodsListHtml(); }
   else if (el.id === 'stashQ') { ui.stashQ = el.value; document.getElementById('stashList').innerHTML = stashListHtml(); }
   else if (el.id === 'shopQ') {
@@ -2024,8 +2113,28 @@ document.addEventListener('keydown', (ev) => {
    iOS 26 sometimes sizes viewport-filling fixed layouts wrong (tab bar floats, content shifts up).
    We size #app from the real window height and detect the Home Screen bug where the page is cut short at the bottom. */
 let SHORT = false;
+/* keyboard: while typing, the app takes exactly the visible area above the keyboard */
+const isTyping = () => { const a = document.activeElement; return !!a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !/^(time|date|file|checkbox|radio)$/.test(a.type))); };
+function fitKeyboard() {
+  const root = document.documentElement; const vv = window.visualViewport;
+  if (vv && isTyping() && window.innerHeight - vv.height > 120) {
+    root.classList.add('kb'); root.style.setProperty('--apph', Math.round(vv.height) + 'px'); root.style.setProperty('--appTop', Math.round(vv.offsetTop) + 'px');
+    return true;
+  }
+  if (root.classList.contains('kb')) { root.classList.remove('kb'); root.style.removeProperty('--appTop'); }
+  return false;
+}
+/* scroll the focused field into the visible part of its list (above the keyboard) */
+function revealFocus() {
+  const el = document.activeElement; if (!el || !isTyping()) return;
+  const box = el.closest('.scroll, .main'); if (!box) return;
+  const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+  const top = b.top + 12, bottom = b.bottom - 24;
+  if (r.bottom > bottom) box.scrollTop += r.bottom - bottom; else if (r.top < top) box.scrollTop -= top - r.top;
+}
 function fit() {
   const root = document.documentElement;
+  if (fitKeyboard()) { revealFocus(); return; }
   // iOS can leave the whole page scrolled up (e.g. after the keyboard closes); the app never scrolls the page itself, so snap it back
   if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
   const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
@@ -2043,7 +2152,8 @@ window.addEventListener('orientationchange', () => setTimeout(fit, 300));
 window.addEventListener('pageshow', fit);
 window.addEventListener('scroll', () => { if (window.scrollY) fit(); }, { passive: true });
 document.addEventListener('focusout', () => setTimeout(fit, 120));
-if (window.visualViewport) { visualViewport.addEventListener('resize', () => setTimeout(fit, 60)); visualViewport.addEventListener('scroll', () => { if (!document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) fit(); }); }
+document.addEventListener('focusin', () => { setTimeout(fit, 80); setTimeout(fit, 400); });
+if (window.visualViewport) { visualViewport.addEventListener('resize', () => setTimeout(fit, 60)); visualViewport.addEventListener('scroll', () => fit()); }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(fit, 50); });
 setTimeout(fit, 300);
 /* safe-area insets as numbers (used by fit) */
