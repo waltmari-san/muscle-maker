@@ -1029,7 +1029,7 @@ function renderSettings() {
       <label class="between" style="min-height:56px;padding:0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px">Maintenance</span><span class="rowc" style="gap:6px"><input id="maint" value="${S.maintenance}" inputmode="numeric" aria-label="Maintenance calories" style="width:80px;border:0;outline:none;background:none;font-size:16px;font-weight:600;text-align:right;padding:0"><span class="muted" style="font-size:13px">kcal</span></span></label>
       <span class="muted" style="font-size:12px;padding:0 4px">Used for the History colors (deficit / maintenance / surplus) and as the base for new periods.</span>
       <button type="button" role="switch" aria-checked="${!S.weightOff}" data-a="weightToggle" class="between" style="width:100%;min-height:56px;padding:0 10px 0 16px;border:0;border-radius:16px;background:var(--surface);text-align:left">
-        <span class="stack" style="gap:2px"><span style="font-size:16px">Weight tracking</span><span class="muted" style="font-size:12px">${S.weightOff ? 'Off · no weigh-in button, no weight in History' : 'Daily weigh-in button on Today, trend in History'}</span></span>
+        <span style="font-size:16px">Weight tracking</span>
         <span aria-hidden="true" style="width:46px;height:28px;border-radius:999px;padding:3px;background:${S.weightOff ? 'var(--line2)' : 'var(--accent)'};display:flex;justify-content:${S.weightOff ? 'flex-start' : 'flex-end'}"><span style="width:22px;height:22px;border-radius:999px;background:#fff"></span></span></button>
     </section>
     <section class="stack" aria-label="Display" style="gap:12px"><h2 class="sec" style="font-size:13px">Display</h2>
@@ -1039,6 +1039,7 @@ function renderSettings() {
     </section>
     <section class="stack" aria-label="Receipt scanning" style="gap:12px"><h2 class="sec" style="font-size:13px">Receipt scanning</h2>
       <div class="rowc" style="gap:8px;min-height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px;flex:none">Claude key</span><input id="claudeKey" type="password" value="${esc(claudeKey())}" placeholder="sk-ant-…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Claude API key" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:15px;text-align:right;padding:0"><button type="button" class="btn" data-a="saveClaude" style="font-size:15px">Save</button></div>
+      <button type="button" class="btn-soft" data-a="testClaude" style="height:46px;font-weight:500">Test key</button>
       <span class="muted" style="font-size:12px;padding:0 4px;line-height:1.5">Stash → receipt button reads a photo of your receipt with Claude and puts what you bought in Stash. Needs your own API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a> (pay as you go, a few cents per receipt at most). The key stays on this phone, isn't part of backups, and the photo goes only to Anthropic.</span>
     </section>
     <section class="stack" aria-label="Food suggestions" style="gap:12px"><h2 class="sec" style="font-size:13px">Food suggestions</h2>
@@ -1861,7 +1862,25 @@ function mergeFoods(src, dst) {
    Photo(s) of a receipt go to Claude (your own key, straight from the phone), which lists what was bought and matches
    it to my foods. A review list lets me fix things, then everything goes into Stash. Receipt lines I confirm are
    remembered (S.rcpt), so the same line matches by itself next time. */
-const claudeKey = () => lsGet('mmm.claude', '').trim();
+const cleanKey = (k) => String(k || '').replace(/[^\x21-\x7E]/g, '');
+const claudeKey = () => cleanKey(lsGet('mmm.claude', ''));
+/* one call to Claude; errors come back as readable text */
+async function claudeCall(content, maxTokens) {
+  if (!navigator.onLine) throw new Error('This phone is offline.');
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': claudeKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: RC_MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content }] })
+    });
+  } catch (e) { throw new Error("Couldn't connect to Claude (" + (e.message || e.name) + ').'); }
+  let data = null; try { data = await res.json(); } catch (e) { /* no JSON */ }
+  const m = data && data.error && data.error.message;
+  if (res.status === 401) throw new Error("Claude didn't accept the key (401" + (m ? ': ' + m : '') + '). Copy it again from console.anthropic.com.');
+  if (!res.ok) throw new Error('Claude error ' + res.status + (m ? ': ' + m : '') + '.');
+  return (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+}
 const RC_MODEL = 'claude-sonnet-5-5';
 const rcKey = (line) => norm(line).replace(/[\d.,]+\s*(€|eur)?\s*[ab]?$/i, '').replace(/\s+/g, ' ').trim();
 function fileToJpeg(file, max = 1568) {
@@ -1887,23 +1906,20 @@ ${mine || '(none yet)'}`;
 }
 async function rcRead(files) {
   ui.rc = { state: 'loading', n: files.length, rows: [] }; render();
+  let step = 'photo';
   try {
     const imgs = await Promise.all(files.map((f) => fileToJpeg(f)));
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': claudeKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: RC_MODEL, max_tokens: 4096, messages: [{ role: 'user', content: [...imgs.map((d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } })), { type: 'text', text: rcPrompt() }] }] })
-    });
-    if (res.status === 401 || res.status === 403) throw new Error('key');
-    if (!res.ok) { let m = ''; try { m = (await res.json()).error.message; } catch (e) { /* none */ } throw new Error('http:' + res.status + (m ? ' · ' + m : '')); }
-    const data = await res.json(); const txt = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+    step = 'call';
+    const txt = await claudeCall([...imgs.map((d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } })), { type: 'text', text: rcPrompt() }], 4096);
+    step = 'answer';
     const js = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+    step = 'list';
     if (!ui.rc) return;
     ui.rc = { state: 'review', store: js.store || null, rows: (js.items || []).map(rcRow).filter(Boolean) };
   } catch (e) {
     if (!ui.rc) return;
-    const m = String(e.message || '');
-    ui.rc = { state: 'error', msg: m === 'key' ? "Claude didn't accept your key. Check it in Settings." : m === 'img' ? "Couldn't open that photo." : /^http:/.test(m) ? 'Claude returned an error (' + m.slice(5) + ').' : e instanceof SyntaxError ? "Couldn't read the answer. Try again, maybe with a sharper photo." : "Couldn't reach Claude. Check your connection." };
+    const m = String(e.message || e.name || e);
+    ui.rc = { state: 'error', msg: step === 'photo' ? "Couldn't open that photo." : step === 'call' ? m : step === 'answer' ? "Couldn't read Claude's answer. Try again, maybe with a sharper photo." : 'Something went wrong building the list (' + m + ').' };
   }
   render();
 }
@@ -2078,7 +2094,19 @@ const A = {
   },
   mergeStart() { syncDraft(); ui.mergeSrc = ui.edit.id; const f = food(ui.mergeSrc); ui.sheet = { tab: 'search', q: similarFoods(f.name, f.id).length ? f.name : '', pick: 'merge', date: todayKey() }; },
   sugHide() { syncDraft(); ui.edit.sugDone = true; ui.edit.offSug = null; },
-  saveClaude() { const v = document.getElementById('claudeKey').value.trim(); lsSet('mmm.claude', v); toast(v ? 'Claude key saved' : 'Claude key removed'); },
+  saveClaude() {
+    const raw = document.getElementById('claudeKey').value; const v = cleanKey(raw); lsSet('mmm.claude', v);
+    const extra = raw.trim().length - v.length;
+    if (v && !/^sk-ant-/.test(v)) toast("Saved, but that doesn't look like a Claude key (it should start with sk-ant-)");
+    else toast(v ? 'Claude key saved' + (extra > 0 ? ' · removed ' + extra + ' hidden character' + (extra === 1 ? '' : 's') : '') : 'Claude key removed');
+  },
+  async testClaude() {
+    A.saveClaude(); if (!claudeKey()) return;
+    toast('Testing your key…'); render();
+    try { await claudeCall([{ type: 'text', text: 'Reply with OK.' }], 5); toast('Key works ✓ Receipts are ready to go.'); }
+    catch (e) { info(e.message); ui.toast = null; }
+    render();
+  },
   saveUsda() { const v = document.getElementById('usdaKey').value.trim(); lsSet('mmm.usda', v); toast(v ? 'USDA key saved' : 'USDA key removed'); },
   createFood() { const q = ui.sheet.q || ''; const pick = ui.sheet.pick; const date = ui.sheet.date; if (pick) ui.sheet = null; if (pick === 'meal') { ui.pendingPick = ui.edit; } openFoodEdit(null, { name: q, from: pick === 'stash' ? 'stash' : pick === 'receipt' ? 'receipt' : pick ? 'pick' : 'sheet', date, z: 45 }); ui.edit.date = date; },
   otherItem() {
