@@ -404,11 +404,15 @@ function macroBars(tot, tgt) {
 }
 /* macro bar of an entry or meal: segments are grams of protein, carbs, fat (and alcohol); length = its grams vs the day's biggest meal */
 const macroG = (e) => e.p + e.c + e.f + (e.al || 0);
+/* Settings → Meal bars: 'g' = grams (default), 'kcal' = calories (fat 9, protein/carbs 4, alcohol 7 per g) */
+const barKcal = () => S.barMode === 'kcal';
+const barSize = (e) => (barKcal() ? e.kcal : macroG(e));
 function splitBar(e, maxG, h = 5) {
-  const s = macroG(e) || 1;
-  const w = maxG ? Math.max(2, macroG(e) / maxG * 100) : 0;
+  const k = barKcal(); const v = [e.p * (k ? 4 : 1), e.c * (k ? 4 : 1), e.f * (k ? 9 : 1), (e.al || 0) * (k ? ALC_K : 1)];
+  const s = v[0] + v[1] + v[2] + v[3] || 1;
+  const w = maxG ? Math.max(2, barSize(e) / maxG * 100) : 0;
   return `<div class="track" aria-hidden="true" style="height:${h}px"><div style="width:${w}%;display:flex;border-radius:999px;overflow:hidden">
-    <span style="width:${e.p / s * 100}%;background:var(--p)"></span><span style="width:${e.c / s * 100}%;background:var(--c)"></span><span style="width:${e.f / s * 100}%;background:var(--f)"></span>${e.al ? `<span style="width:${e.al / s * 100}%;background:var(--al)"></span>` : ''}</div></div>`;
+    <span style="width:${v[0] / s * 100}%;background:var(--p)"></span><span style="width:${v[1] / s * 100}%;background:var(--c)"></span><span style="width:${v[2] / s * 100}%;background:var(--f)"></span>${v[3] ? `<span style="width:${v[3] / s * 100}%;background:var(--al)"></span>` : ''}</div></div>`;
 }
 function periodPill(tg) {
   const g = tg.period ? GOALS[tg.period.goal] : GOALS.maintain;
@@ -456,17 +460,17 @@ function entryRow(e, tg, maxK, ic) {
 }
 function groupRow(g, tg, maxK) {
   const open = !!ui.open[g.id];
-  const icons = []; g.entries.forEach((e) => { const f = food(e.foodId); if (f && f.fav && f.icon && !icons.includes(f.icon) && icons.length < 3) icons.push(f.icon); });
+  const icons = []; g.entries.forEach((e) => { const f = food(e.foodId); if (f && f.icon && !icons.includes(f.icon) && icons.length < 3) icons.push(f.icon); });
   return `<div style="display:flex;gap:16px">
     <div style="width:10px;display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:999px;border:2px solid var(--accent);background:${open ? 'var(--accent)' : 'none'};margin-top:4px"></span><span style="flex:1;width:1px;background:var(--line)"></span></div>
     <div class="stack" style="flex:1;min-width:0;padding-bottom:16px">
       <button type="button" data-a="grp" data-id="${g.id}" aria-expanded="${open}" style="border:0;background:none;padding:0;text-align:left;width:100%;display:flex;flex-direction:column;gap:6px">
-        <div class="between" style="align-items:baseline;width:100%"><span class="muted num" style="font-size:12px">${hm(g.ts)} · ${g.entries.length} items</span><span class="num" style="font-size:16px;font-weight:600">${fmt(g.kcal)}</span></div>
+        <div class="between" style="align-items:baseline;width:100%"><span class="muted num" style="font-size:12px">${hm(g.ts)} · ${g.entries.length} ${g.entries.length === 1 ? 'item' : 'items'}</span><span class="num" style="font-size:16px;font-weight:600">${fmt(g.kcal)}</span></div>
         <div class="between" style="align-items:baseline;width:100%"><span class="rowc" style="gap:8px;font-size:16px;font-weight:600;min-width:0">${icons.map((k) => icon(k, 18, 'var(--accent)')).join('')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.name)}</span><span class="muted">${chevron(open)}</span></span><span class="muted num" style="font-size:12px;white-space:nowrap">${tg.kcal ? Math.round(g.kcal / tg.kcal * 100) : 0}% of day</span></div>
         <div style="width:100%">${splitBar(g, maxK)}</div>
       </button>
       ${open ? `<div class="stack" style="margin-top:12px;padding-left:12px;border-left:1px solid var(--line2)">
-        ${g.entries.map((e) => { const f = food(e.foodId); const ic = f && f.fav ? f.icon : null; return `<button type="button" data-a="editEntry" data-id="${e.id}" class="between" style="border:0;border-bottom:1px solid #1B2232;background:none;padding:10px 0;text-align:left;width:100%;min-height:52px">
+        ${g.entries.map((e) => { const f = food(e.foodId); const ic = f && f.icon ? f.icon : null; return `<button type="button" data-a="editEntry" data-id="${e.id}" class="between" style="border:0;border-bottom:1px solid #1B2232;background:none;padding:10px 0;text-align:left;width:100%;min-height:52px">
           <span class="stack" style="gap:3px;min-width:0"><span class="rowc" style="gap:7px;font-size:15px;font-weight:500;min-width:0">${icon(ic, 16, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span></span><span class="muted num" style="font-size:12px">${e.pu ? esc(countLabel(e.pu, e.pn)) + ' · ' : ''}${fmt(e.g)} ${unitOf(f)}</span></span>
           <span class="num" style="font-size:15px;font-weight:600">${fmt(e.kcal)}</span></button>`; }).join('')}
         <div class="rowc" style="gap:4px;margin:4px 0 0 -10px"><button type="button" class="btn" data-a="openSheet" data-id="${g.id}" style="font-size:14px;display:flex;align-items:center;gap:6px">${svg(I.plus, 15, 2.4)}Add food</button><button type="button" class="btn" data-a="grpRename" data-id="${g.id}" style="font-size:14px;color:var(--muted);font-weight:500">Rename</button><button type="button" class="btn" data-a="grpDelete" data-id="${g.id}" style="font-size:14px;color:var(--danger);font-weight:500;display:flex;align-items:center;gap:6px">${svg(I.trash, 15, 2)}Delete</button></div>
@@ -477,7 +481,7 @@ function renderDay(k, isToday) {
   const tg = targetFor(k), tot = dayTotals(k);
   const left = tg.kcal - tot.kcal, over = left < 0;
   const groups = dayGroups(k);
-  const maxK = Math.max(0, ...groups.map(macroG));
+  const maxK = Math.max(0, ...groups.map(barSize));
   const fillA = over ? tg.kcal / tot.kcal * 100 : Math.min(100, tot.kcal / (tg.kcal || 1) * 100);
   const head = isToday
     ? `<div class="stack" style="gap:14px">${titleLine()}<div class="between" style="align-items:flex-end"><div class="stack" style="gap:4px"><span class="muted" style="font-size:13px;font-weight:500">${dLabel(k)}</span><h1 class="h1">Today</h1></div>${periodPill(tg)}</div></div>`
@@ -500,9 +504,9 @@ function renderDay(k, isToday) {
     <section aria-label="Timeline" class="stack" style="gap:10px">
       <h2 class="sec" style="font-size:13px">Timeline</h2>
       ${groups.length ? `<div class="stack">${groups.map((g) => {
-        if (g.entries.length > 1) return groupRow(g, tg, maxK);
+        if (g.entries.length > 1 || g.custom) return groupRow(g, tg, maxK);
         const e = g.entries[0]; const f = food(e.foodId);
-        return entryRow(e, tg, maxK, f && f.fav ? f.icon : null);
+        return entryRow(e, tg, maxK, f && f.icon ? f.icon : null);
       }).join('')}</div>` : `<div class="empty">Nothing logged ${isToday ? 'yet' : 'on this day'}.<br>Tap <b style="color:var(--accent)">+</b> to add food.</div>`}
     </section></div>`;
 }
@@ -512,13 +516,13 @@ function rowFood(f, pick) {
   const dp = defaultPortion(f); const g = dp.g; const n = nut(f, g);
   return `<div class="rowc" style="gap:12px;border-bottom:1px solid #1B2232">
     <button type="button" class="item" style="border:0;flex:1;min-width:0" data-a="${pick ? 'pickAdd' : 'openPortion'}" data-id="${f.id}">
-      <span class="stack" style="flex:1;min-width:0"><span class="nm">${f.fav ? icon(f.icon, 17, 'var(--accent)') : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub">${pick ? fmt(g) + ' ' + unitOf(f) : esc(amountLabel(f, g, dp.pu))}${f.brand ? ' · ' + esc(f.brand) : ''}</span></span>
+      <span class="stack" style="flex:1;min-width:0"><span class="nm">${icon(f.icon, 17, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub">${pick ? fmt(g) + ' ' + unitOf(f) : esc(amountLabel(f, g, dp.pu))}${f.brand ? ' · ' + esc(f.brand) : ''}</span></span>
       <span class="num" style="font-size:15px;font-weight:600">${fmt(n.kcal)}</span></button>
     <button type="button" class="plus" aria-label="${pick ? 'Add' : 'Log'} ${esc(f.name)} ${pick ? (ui.sheet && ui.sheet.pick === 'stash' ? 'to Stash' : 'to meal') : 'now'}" data-a="${pick ? 'pickAdd' : 'quickFood'}" data-id="${f.id}">${svg(I.plus, 18, 2.2)}</button></div>`;
 }
 function rowMeal(m) {
   const n = mealNut(m); const names = m.items.map((it) => (food(it.foodId) || {}).name).filter(Boolean);
-  const ics = m.items.map((it) => { const f = food(it.foodId); return f && f.fav ? f.icon : null; }).filter(Boolean).slice(0, 3);
+  const ics = m.items.map((it) => { const f = food(it.foodId); return f && f.icon ? f.icon : null; }).filter(Boolean).slice(0, 3);
   return `<div class="rowc" style="gap:12px;border-bottom:1px solid #1B2232">
     <button type="button" class="item" style="border:0;flex:1;min-width:0" data-a="quickMeal" data-id="${m.id}">
       <span class="stack" style="flex:1;min-width:0"><span class="nm"><span class="rowc" style="gap:2px">${ics.map((k) => icon(k, 17, 'var(--accent)')).join('')}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name)}</span></span><span class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Meal · ${esc(names.join(' + '))}</span></span>
@@ -538,7 +542,7 @@ function inMealHtml() {
   return `<section aria-label="Already in this meal" class="card stack" style="padding:10px 14px 4px;margin:4px 0 8px">
     <span class="between" style="font-size:12px"><span class="sec" style="font-size:11px">In ${esc(g.name)}</span><span class="muted num">${g.entries.length} ${g.entries.length === 1 ? 'item' : 'items'} · ${fmt(g.kcal)} kcal</span></span>
     ${g.entries.map((e, i) => { const f = food(e.foodId); return `<button type="button" data-a="editEntry" data-id="${e.id}" class="between" style="border:0;${i ? 'border-top:1px solid var(--line);' : ''}background:none;padding:8px 0;text-align:left;width:100%;min-height:42px;gap:10px">
-      <span class="rowc" style="gap:7px;min-width:0;font-size:14px;font-weight:500">${f && f.fav ? icon(f.icon, 15, 'var(--accent)') : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span><span class="muted num" style="font-size:12px;font-weight:400;white-space:nowrap">${e.pu ? esc(countLabel(e.pu, e.pn)) : fmt(e.g) + ' ' + unitOf(f)}</span></span>
+      <span class="rowc" style="gap:7px;min-width:0;font-size:14px;font-weight:500">${f ? icon(f.icon, 15, 'var(--accent)') : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span><span class="muted num" style="font-size:12px;font-weight:400;white-space:nowrap">${e.pu ? esc(countLabel(e.pu, e.pn)) : fmt(e.g) + ' ' + unitOf(f)}</span></span>
       <span class="num muted" style="font-size:13px">${fmt(e.kcal)}</span></button>`; }).join('')}</section>`;
 }
 function sheetBodyHtml() { const sh = ui.sheet; return inMealHtml() + (sh.tab === 'search' ? searchResults() : sheetList() + createRow()); }
@@ -612,7 +616,8 @@ function targetChips() {
   gs.filter((g) => g.id !== sh.gid).reverse().forEach((g) => chips.push([g.id, groupLabel(g) + ' · ' + hm(g.ts), sh.tgt === g.id]));
   return `<div class="rowc" role="radiogroup" aria-label="Add to meal" style="gap:6px;overflow-x:auto;margin:-2px -20px 0;padding:0 20px;scrollbar-width:none">
     <span class="muted" style="font-size:12px;font-weight:500;white-space:nowrap;margin-right:2px">Add to</span>
-    ${chips.map(([id, l, on]) => `<button type="button" role="radio" aria-checked="${on}" class="chip ${on ? 'on' : ''}" data-a="sheetTgt" data-id="${id}" style="height:32px;padding:0 12px;white-space:nowrap;flex:none;color:${on ? 'var(--text)' : 'var(--muted)'}">${esc(l)}</button>`).join('')}</div>`;
+    ${chips.map(([id, l, on]) => `<button type="button" role="radio" aria-checked="${on}" class="chip ${on ? 'on' : ''}" data-a="sheetTgt" data-id="${id}" style="height:32px;padding:0 12px;white-space:nowrap;flex:none;color:${on ? 'var(--text)' : 'var(--muted)'}">${esc(l)}</button>`).join('')}
+    <button type="button" class="chip" data-a="sheetRename" aria-label="Rename this meal" style="height:32px;padding:0 12px;flex:none;display:flex;align-items:center;gap:5px;color:var(--accent);border-style:dashed">${svg(I.pen, 13, 2.2)}Rename</button></div>`;
 }
 
 /* ---------- Portion ---------- */
@@ -698,6 +703,7 @@ function renderWeight() {
         <span class="muted" style="font-size:13px">${last ? 'Last: ' + last.kg.toFixed(1) + ' kg · ' + (last.d === todayKey() ? 'today' : dShort(last.d)) : 'First weigh-in'}</span></div>
       <div class="keypad">${keys.map((k) => `<button type="button" data-a="wkey" data-k="${k}" aria-label="${k === '⌫' ? 'Delete' : k === '.' ? 'Decimal point' : k}" style="background:var(--sheet)">${k}</button>`).join('')}</div>
       <button type="button" class="btn-primary" data-a="saveWeight" style="background:var(--weight);color:#2A1F00">Save weight</button>
+      <button type="button" class="btn" data-a="noScale" style="margin-top:-10px;color:var(--muted);font-weight:500">No scale available today</button>
     </div></div>`;
 }
 
@@ -723,7 +729,7 @@ function foodsListHtml() {
       const n = mealNut(m);
       return `<button type="button" class="card" data-a="editMeal" data-id="${m.id}" style="border:0;text-align:left;display:flex;flex-direction:column;gap:12px">
         <span class="between" style="align-items:baseline"><span style="font-size:17px;font-weight:600">${m.fav ? '★ ' : ''}${esc(m.name)}</span><span class="num" style="font-size:16px;font-weight:600">${fmt(n.kcal)} <span class="muted" style="font-size:12px;font-weight:400">kcal</span></span></span>
-        <span class="stack" style="gap:8px">${m.items.map((it) => { const f = food(it.foodId); if (!f) return ''; return `<span class="rowc" style="gap:8px;font-size:14px;color:#C9D1DE">${f.fav ? icon(f.icon, 16, 'var(--accent)') : `<span class="dot" style="background:var(--line2);margin:0 4px"></span>`}${esc(f.name)} · ${fmt(it.g)} ${unitOf(f)}</span>`; }).join('')}</span>
+        <span class="stack" style="gap:8px">${m.items.map((it) => { const f = food(it.foodId); if (!f) return ''; return `<span class="rowc" style="gap:8px;font-size:14px;color:#C9D1DE">${f.icon ? icon(f.icon, 16, 'var(--accent)') : `<span class="dot" style="background:var(--line2);margin:0 4px"></span>`}${esc(f.name)} · ${fmt(it.g)} ${unitOf(f)}</span>`; }).join('')}</span>
         <span class="rowc muted num" style="gap:14px;font-size:12px"><span class="rowc" style="gap:6px"><span class="dot" style="width:6px;height:6px;background:var(--p)"></span>P ${Math.round(n.p)}</span><span class="rowc" style="gap:6px"><span class="dot" style="width:6px;height:6px;background:var(--c)"></span>C ${Math.round(n.c)}</span><span class="rowc" style="gap:6px"><span class="dot" style="width:6px;height:6px;background:var(--f)"></span>F ${Math.round(n.f)}</span></span>
       </button>`;
     }).join('')}</div>`;
@@ -807,7 +813,7 @@ function renderMealEdit() {
         ${[['kcal', fmt(n.kcal), ''], ['Protein', Math.round(n.p) + ' g', '--p'], ['Carbs', Math.round(n.c) + ' g', '--c'], ['Fat', Math.round(n.f) + ' g', '--f']].map(([l, v, c]) => `<div class="stack" style="gap:4px"><span class="muted rowc" style="font-size:11px;gap:6px">${c ? `<span class="dot" style="width:6px;height:6px;background:var(${c})"></span>` : ''}${l}</span><span class="num" style="font-size:18px;font-weight:600">${v}</span></div>`).join('')}
       </div>
       <section class="stack" style="gap:4px"><h2 class="sec" style="margin-bottom:4px">Foods in this meal</h2>
-        ${d.items.map((it, i) => { const f = food(it.foodId); if (!f) return ''; return `<div class="rowc" style="gap:12px;min-height:60px;border-bottom:1px solid #1B2232"><span class="tile" style="width:38px;height:38px">${f.fav ? icon(f.icon, 21) : ''}</span><span style="flex:1;min-width:0;font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><input data-mi="${i}" value="${it.g}" inputmode="decimal" aria-label="Amount of ${esc(f.name)}" style="width:64px;border:0;outline:none;background:var(--surface);border-radius:10px;padding:8px;text-align:right;font-size:15px"><span class="muted" style="font-size:13px">${unitOf(f)}</span><button type="button" class="iconbtn" aria-label="Remove ${esc(f.name)}" data-a="rmMealItem" data-i="${i}" style="color:var(--muted);width:32px">${svg(I.x, 16)}</button></div>`; }).join('')}
+        ${d.items.map((it, i) => { const f = food(it.foodId); if (!f) return ''; return `<div class="rowc" style="gap:12px;min-height:60px;border-bottom:1px solid #1B2232"><span class="tile" style="width:38px;height:38px">${icon(f.icon, 21)}</span><span style="flex:1;min-width:0;font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><input data-mi="${i}" value="${it.g}" inputmode="decimal" aria-label="Amount of ${esc(f.name)}" style="width:64px;border:0;outline:none;background:var(--surface);border-radius:10px;padding:8px;text-align:right;font-size:15px"><span class="muted" style="font-size:13px">${unitOf(f)}</span><button type="button" class="iconbtn" aria-label="Remove ${esc(f.name)}" data-a="rmMealItem" data-i="${i}" style="color:var(--muted);width:32px">${svg(I.x, 16)}</button></div>`; }).join('')}
         <button type="button" class="btn" data-a="mealAddFood" style="text-align:left;padding:0">+ Add food</button></section>
       ${d.items.length ? `<button type="button" class="btn-primary" data-a="logMealNow">Log meal now</button>` : ''}
       ${isNew ? '' : `<button type="button" class="btn-danger" data-a="deleteMeal">Delete meal</button>`}
@@ -945,6 +951,11 @@ function renderSettings() {
       <label class="between" style="min-height:56px;padding:0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px">Maintenance</span><span class="rowc" style="gap:6px"><input id="maint" value="${S.maintenance}" inputmode="numeric" aria-label="Maintenance calories" style="width:80px;border:0;outline:none;background:none;font-size:16px;font-weight:600;text-align:right;padding:0"><span class="muted" style="font-size:13px">kcal</span></span></label>
       <span class="muted" style="font-size:12px;padding:0 4px">Used for the History colors (deficit / maintenance / surplus) and as the base for new periods.</span>
     </section>
+    <section class="stack" aria-label="Display" style="gap:12px"><h2 class="sec" style="font-size:13px">Display</h2>
+      <div class="between" style="min-height:56px;padding:0 10px 0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px">Meal bars</span>
+        <div class="seg" role="radiogroup" aria-label="Meal bars by" style="grid-template-columns:1fr 1fr;padding:2px;width:170px;background:var(--line)">${[['g', 'Grams'], ['kcal', 'Calories']].map(([k, l]) => `<button type="button" role="radio" aria-checked="${(S.barMode || 'g') === k}" style="height:30px" class="${(S.barMode || 'g') === k ? 'on' : ''}" data-a="barMode" data-k="${k}">${l}</button>`).join('')}</div></div>
+      <span class="muted" style="font-size:12px;padding:0 4px">How the protein / carbs / fat bar under each meal on Today is split and sized: by grams eaten, or by the calories they bring.</span>
+    </section>
     <section class="stack" aria-label="Food suggestions" style="gap:12px"><h2 class="sec" style="font-size:13px">Food suggestions</h2>
       <div class="rowc" style="gap:8px;min-height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--surface)"><span style="font-size:16px;flex:none">USDA key</span><input id="usdaKey" value="${esc(usdaKey())}" placeholder="Paste your free key" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="USDA API key" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:15px;text-align:right;padding:0"><button type="button" class="btn" data-a="saveUsda" style="font-size:15px">Save</button></div>
       <span class="muted" style="font-size:12px;padding:0 4px;line-height:1.5">${GENERIC.length} common foods are built in. For anything else, new foods are looked up in the USDA database once you add a free key from <a href="https://fdc.nal.usda.gov/api-key-signup" target="_blank" rel="noopener" style="color:var(--accent)">fdc.nal.usda.gov</a>. The key stays on this phone and isn't part of backups.</span>
@@ -956,7 +967,7 @@ function renderSettings() {
       </div>
       <span class="muted" style="font-size:12px;padding:0 4px">Your data lives only in this app on this phone. Updates never touch it, but removing the app from the Home Screen does, and Safari keeps a separate copy. The backup covers both trackers.</span>
     </section>
-    <p class="muted" style="text-align:center;font-size:12px;margin:8px 0 0">Mariboy's Muscle Maker · v3</p></div>`;
+    <p class="muted" style="text-align:center;font-size:12px;margin:8px 0 0">Mariboy's Muscle Maker · v4</p></div>`;
 }
 
 /* ---------- Period editor ---------- */
@@ -1001,7 +1012,7 @@ function renderAppMenu() {
 /* ---------- Stash: shared pieces ---------- */
 function sTile(it, size = 40) {
   const f = it.foodId && food(it.foodId);
-  const ic = f && f.fav && f.icon ? icon(f.icon, Math.round(size * 0.52)) : `<span style="font-size:${Math.round(size * 0.4)}px;font-weight:700;color:var(--muted)">${esc((sName(it)[0] || '?').toUpperCase())}</span>`;
+  const ic = f && f.icon ? icon(f.icon, Math.round(size * 0.52)) : `<span style="font-size:${Math.round(size * 0.4)}px;font-weight:700;color:var(--muted)">${esc((sName(it)[0] || '?').toUpperCase())}</span>`;
   return `<span class="tile" style="width:${size}px;height:${size}px">${ic}</span>`;
 }
 /* the bar under a Stash item: how full the open pack/bottle is (pack size = Stash pack, else the food's first, biggest portion) */
@@ -1094,7 +1105,7 @@ function mealMissing(m, times = 1) {
   const need = {}; m.items.forEach((it) => { need[it.foodId] = (need[it.foodId] || 0) + it.g * times; });
   return Object.keys(need).map(food).filter(Boolean).filter((f) => { const s = stashOf(f.id); return !s || s.amount + 0.5 < need[f.id]; }).map((f) => f.name);
 }
-const mealIcons = (m) => m.items.map((it) => { const f = food(it.foodId); return f && f.fav ? f.icon : null; }).filter(Boolean).slice(0, 3).map((k) => icon(k, 16, 'var(--accent)')).join('');
+const mealIcons = (m) => m.items.map((it) => { const f = food(it.foodId); return f && f.icon ? f.icon : null; }).filter(Boolean).slice(0, 3).map((k) => icon(k, 16, 'var(--accent)')).join('');
 function renderPlan() {
   const rows = S.plan.map((pl) => ({ pl, m: meal(pl.mealId) })).filter((x) => x.m);
   const total = rows.reduce((a, x) => a + x.pl.n, 0);
@@ -1219,7 +1230,7 @@ function renderShopAdd() {
 function shopAddBody(q, fs, its) {
   let h = '';
   if (q) h += `<button type="button" class="btn-soft" data-a="shopAddFree" style="margin:6px 0 10px">${svg(I.plus, 16, 2.6)}Add "${esc(ui.shopAdd.q.trim())}"</button>`;
-  if (fs.length) h += `<h2 class="sec" style="margin:10px 0 2px">My foods</h2>` + fs.map((f) => `<button type="button" class="item" data-a="shopAddFood" data-id="${f.id}"><span class="stack" style="flex:1;min-width:0"><span class="nm">${f.fav ? icon(f.icon, 17, 'var(--accent)') : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub">${stashOf(f.id) ? 'Stash: ' + esc(isOut(stashOf(f.id)) ? 'out' : amtMain(stashOf(f.id))) : 'Not in Stash yet'}</span></span>${svg(I.plus, 18, 2.2)}</button>`).join('');
+  if (fs.length) h += `<h2 class="sec" style="margin:10px 0 2px">My foods</h2>` + fs.map((f) => `<button type="button" class="item" data-a="shopAddFood" data-id="${f.id}"><span class="stack" style="flex:1;min-width:0"><span class="nm">${icon(f.icon, 17, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span></span><span class="sub">${stashOf(f.id) ? 'Stash: ' + esc(isOut(stashOf(f.id)) ? 'out' : amtMain(stashOf(f.id))) : 'Not in Stash yet'}</span></span>${svg(I.plus, 18, 2.2)}</button>`).join('');
   if (its.length) h += `<h2 class="sec" style="margin:14px 0 2px">${q ? 'Other items' : 'Out of stock'}</h2>` + its.map((it) => `<button type="button" class="item" data-a="shopAddStash" data-id="${it.id}"><span class="stack" style="flex:1;min-width:0"><span class="nm">${esc(sName(it))}</span><span class="sub">${isOut(it) ? 'out' : amtMain(it)}</span></span>${svg(I.plus, 18, 2.2)}</button>`).join('');
   if (!h) h = `<div class="empty">Type what you need.</div>`;
   return h;
@@ -1247,7 +1258,7 @@ function render() {
     else if (ui.tab === 'history') main = renderHistory();
     else main = renderSettings();
     const showFab = ui.tab === 'today' || (ui.tab === 'history' && ui.day);
-    const needW = ui.tab === 'today' && !weightOn(todayKey());
+    const needW = ui.tab === 'today' && !weightOn(todayKey()) && !(S.wSkip || []).includes(todayKey());
     html = `<div class="main" data-scroll="main-${ui.tab}${ui.day ? '-' + ui.day : ''}" style="${needW ? 'padding-bottom:200px' : ''}">${main}</div>${tabbar()}`;
     if (showFab) html += `<button type="button" class="fab" aria-label="Log food" data-a="openSheet" style="${needW ? 'bottom:calc(var(--sb) + 148px)' : ''}">${svg(I.plus, 26, 2.4)}</button>`;
     if (needW) html += `<button type="button" class="wbtn" data-a="openWeight">${svg(I.scale, 20, 2)}Log weight for today!</button>`;
@@ -1554,7 +1565,8 @@ function applySug(x, quiet) {
   d.unit = x.unit === 'ml' ? 'ml' : 'g';
   ['kcal100', 'p100', 'c100', 'f100', 'sf100', 'su100', 'fi100', 'sa100', 'al100'].forEach((k) => { d[k] = hasV(x[k]) ? x[k] : ''; });
   (x.portions || []).forEach((p) => { if (!d.portions.some((q) => unitName(q.label).toLowerCase() === unitName(p.label).toLowerCase())) d.portions.push({ label: p.label, g: p.g }); }); sortPortions(d.portions);
-  if (x.src === 'off') { if (!d.name.trim()) d.name = x.name; if (!(d.brand || '').trim()) d.brand = x.brand || ''; d.code = x.code; }
+  if (x.name) d.name = x.name;
+  if (x.src === 'off') { if (x.brand) d.brand = x.brand; d.code = x.code; }
   d.src = x.src; e.sugDone = true; e.offSug = null;
   if (!quiet) toast('Filled in from ' + SRC[x.src] + ' · edit anything that looks off');
 }
@@ -1694,6 +1706,11 @@ const A = {
   dayBack() { ui.day = null; },
   openDay(el) { const k = el.dataset.k; if (k === todayKey()) { ui.tab = 'today'; ui.day = null; } else ui.day = k; },
   openSheet(el) { ui.sheet = { tab: 'recent', q: '', date: ui.tab === 'history' && ui.day ? ui.day : todayKey(), gid: uid(), n: 0, tgt: el && el.dataset.id ? el.dataset.id : null }; },
+  sheetRename() {
+    const sh = ui.sheet; const id = sh.tgt || sh.gid; const g = groupOf(id);
+    ui.rename = { gid: id, sheet: !sh.tgt, val: (g && g.custom) || (!sh.tgt && sh.gn) || '', auto: autoName(g ? g.ts : tsFor(sh.date)) };
+    setTimeout(() => { const i = document.getElementById('rnIn'); if (i) { i.focus(); i.select(); } }, 30);
+  },
   sheetTgt(el) { ui.sheet.tgt = el.dataset.id || null; },
   grp(el) { const id = el.dataset.id; if (ui.open[id]) delete ui.open[id]; else ui.open[id] = true; },
   tAdv() { ui.tAdv = !ui.tAdv; },
@@ -1709,11 +1726,17 @@ const A = {
   rnSave() {
     const v = document.getElementById('rnIn').value.trim(); const r = ui.rename;
     S.log.forEach((e) => { if (e.gid === r.gid) { if (v) e.gn = v; else delete e.gn; } });
+    if (r.sheet && ui.sheet) ui.sheet.gn = v || null; // the meal being added now (may have no foods yet)
     save(); ui.rename = null;
   },
   rnClose() { ui.rename = null; },
   openWeight() { ui.wt = { val: '', fresh: true }; },
   closeWeight() { ui.wt = null; },
+  noScale() {
+    const t = todayKey(); const old = S.wSkip || [];
+    S.wSkip = [...old.filter((d) => d > addDays(t, -60) && d !== t), t]; save(); ui.wt = null; // no weight for today, the button goes away until tomorrow
+    toast('No weigh-in today', null, () => { S.wSkip = old; });
+  },
   wkey(el) {
     const k = el.dataset.k; const w = ui.wt; let v = w.fresh ? '' : w.val;
     if (k === '⌫') v = v.slice(0, -1);
@@ -2045,6 +2068,7 @@ const A = {
     S.lastExport = Date.now(); S.backupSnooze = null; save(); toast('Backup exported');
   },
   import() { document.getElementById('importFile').click(); },
+  barMode(el) { S.barMode = el.dataset.k; save(); },
   backupLater() { S.backupSnooze = Date.now() + 3 * 86400000; save(); }
 };
 function openIconPick(kind, obj) {
