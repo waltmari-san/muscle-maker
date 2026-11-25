@@ -1,7 +1,7 @@
 // Muscle Maker offline cache.
 // The page itself (index.html) is fetched from the network first, so a new version shows up on the next open;
 // the cached copy is only used when offline. Icons and the manifest are served from cache and refreshed in the background.
-const CACHE = 'mmm-v5';
+const CACHE = 'mmm-v6';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

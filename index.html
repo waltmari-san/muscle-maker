@@ -16,11 +16,13 @@
 <style>
 :root{
   --bg:#090C13;--sheet:#0F1420;--surface:#141A27;--line:#1E2636;--line2:#2A3347;
-  --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;
+  --text:#EEF2F8;--muted:#8B95A8;--accent:#5B9BFF;--on-accent:#061026;--accent-bg:#14223D;--accent-line:#2B4A80;--accent-soft:#9CC2FF;--accent-line2:#23395F;
   --p:#34D3B0;--c:#F2A541;--f:#B79CFF;
   --weight:#FFD25A;--cut:#5B9BFF;--bulk:#FF9A8A;--maint:#8B95A8;--danger:#FF7A7A;
   --st:calc(env(safe-area-inset-top,0px) + 8px);--sb:var(--sbBase,env(safe-area-inset-bottom,0px));
 }
+/* Stash tracker has its own accent: pine green, same light/dark steps as the blue */
+html[data-mode=stash]{--accent:#3FB27F;--on-accent:#03140C;--accent-bg:#0F2A1F;--accent-line:#1F5A42;--accent-soft:#8FD9B5;--accent-line2:#1A4234}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
 button,input,select{font-family:inherit;color:inherit}
@@ -56,7 +58,7 @@ html,body{overflow:hidden}
 .track>span{height:100%;display:block}
 .btn{border:0;background:none;font-size:15px;font-weight:600;color:var(--accent);min-height:44px;padding:0 10px}
 .btn-primary{border:0;width:100%;height:54px;border-radius:14px;background:var(--accent);color:var(--on-accent);font-size:17px;font-weight:600}
-.btn-soft{border:1px solid #2B4A80;width:100%;height:52px;border-radius:14px;background:#14223D;color:var(--text);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn-soft{border:1px solid var(--accent-line);width:100%;height:52px;border-radius:14px;background:var(--accent-bg);color:var(--text);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px}
 .btn-danger{border:1px solid var(--danger);width:100%;height:48px;border-radius:12px;background:none;color:var(--danger);font-size:15px;font-weight:500}
 .iconbtn{width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0;flex:none}
 .plus{width:44px;height:44px;border-radius:999px;border:1px solid var(--line2);background:none;color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none}
@@ -75,7 +77,7 @@ html,body{overflow:hidden}
 .field input,.field select{border:0;outline:none;background:none;padding:0;font-size:17px;font-weight:600;width:100%;min-width:0}
 .field select{appearance:none;-webkit-appearance:none}
 .chip{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line2);background:none;font-size:13px;font-weight:500}
-.chip.on{border-color:var(--accent);background:#14223D}
+.chip.on{border-color:var(--accent);background:var(--accent-bg)}
 .empty{padding:28px 8px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5}
 .tabbar{position:fixed;left:0;right:0;bottom:0;padding:8px 12px var(--sb);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:rgba(9,12,19,.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line);z-index:10}
 .tabbar button{border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:500;height:50px;justify-content:center}
@@ -454,7 +456,7 @@ function groupRow(g, tg, maxK) {
         ${g.entries.map((e) => { const f = food(e.foodId); const ic = f && f.fav ? f.icon : null; return `<button type="button" data-a="editEntry" data-id="${e.id}" class="between" style="border:0;border-bottom:1px solid #1B2232;background:none;padding:10px 0;text-align:left;width:100%;min-height:52px">
           <span class="stack" style="gap:3px;min-width:0"><span class="rowc" style="gap:7px;font-size:15px;font-weight:500;min-width:0">${icon(ic, 16, 'var(--accent)')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name)}</span></span><span class="muted num" style="font-size:12px">${e.pu ? esc(countLabel(e.pu, e.pn)) + ' · ' : ''}${fmt(e.g)} ${unitOf(f)}</span></span>
           <span class="num" style="font-size:15px;font-weight:600">${fmt(e.kcal)}</span></button>`; }).join('')}
-        <div class="rowc" style="gap:4px;margin:4px 0 0 -10px"><button type="button" class="btn" data-a="openSheet" data-id="${g.id}" style="font-size:14px;display:flex;align-items:center;gap:6px">${svg(I.plus, 15, 2.4)}Add food</button><button type="button" class="btn" data-a="grpRename" data-id="${g.id}" style="font-size:14px;color:var(--muted);font-weight:500">Rename</button></div>
+        <div class="rowc" style="gap:4px;margin:4px 0 0 -10px"><button type="button" class="btn" data-a="openSheet" data-id="${g.id}" style="font-size:14px;display:flex;align-items:center;gap:6px">${svg(I.plus, 15, 2.4)}Add food</button><button type="button" class="btn" data-a="grpRename" data-id="${g.id}" style="font-size:14px;color:var(--muted);font-weight:500">Rename</button><button type="button" class="btn" data-a="grpDelete" data-id="${g.id}" style="font-size:14px;color:var(--danger);font-weight:500;display:flex;align-items:center;gap:6px">${svg(I.trash, 15, 2)}Delete</button></div>
       </div>` : ''}
     </div></div>`;
 }
@@ -667,7 +669,7 @@ function renderIconPick() {
     <div role="dialog" aria-label="Pick an icon" style="position:absolute;left:0;right:0;bottom:0;padding:10px 20px calc(var(--sb) + 24px);border-radius:20px 20px 0 0;background:var(--surface);display:flex;flex-direction:column;gap:18px">
       <div class="grab" style="margin-top:0"></div>
       <div class="stack" style="gap:4px"><h2 style="margin:0;font-size:20px;font-weight:700">${ip.title}</h2><span class="muted" style="font-size:14px">Pick an icon for ${esc(ip.name)}</span></div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${Object.keys(ICONS).map((k) => `<button type="button" aria-label="${ICONS[k][0]}" data-a="pickIcon" data-k="${k}" style="height:66px;border-radius:16px;border:1.5px solid ${cur === k ? 'var(--accent)' : 'transparent'};background:${cur === k ? '#14223D' : 'var(--sheet)'};color:${cur === k ? 'var(--accent)' : 'var(--text)'};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">${icon(k, 26)}<span class="muted" style="font-size:11px">${ICONS[k][0]}</span></button>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${Object.keys(ICONS).map((k) => `<button type="button" aria-label="${ICONS[k][0]}" data-a="pickIcon" data-k="${k}" style="height:66px;border-radius:16px;border:1.5px solid ${cur === k ? 'var(--accent)' : 'transparent'};background:${cur === k ? 'var(--accent-bg)' : 'var(--sheet)'};color:${cur === k ? 'var(--accent)' : 'var(--text)'};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">${icon(k, 26)}<span class="muted" style="font-size:11px">${ICONS[k][0]}</span></button>`).join('')}</div>
       <button type="button" class="btn-primary" data-a="closeIcon">Done</button>
     </div></div>`;
 }
@@ -1068,7 +1070,7 @@ function renderMealPick() {
     <div class="between" style="padding:10px 20px 6px"><h1 style="margin:0;font-size:22px;font-weight:700">Add to plan</h1><button type="button" class="iconbtn" aria-label="Close" data-a="closeMealPick" style="margin-right:-10px;color:var(--muted)">${svg(I.x, 22)}</button></div>
     <div class="scroll" style="padding:0 20px calc(var(--sb) + 30px)">${ms.length ? ms.map((m) => {
       const miss = mealMissing(m); const pl = S.plan.find((x) => x.mealId === m.id);
-      return `<button type="button" class="item" data-a="planAddMeal" data-id="${m.id}" style="min-height:64px"><span class="stack" style="flex:1;min-width:0"><span class="nm">${mealIcons(m)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name)}</span></span><span class="sub" style="${miss.length ? '' : 'color:var(--p)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${miss.length ? 'Missing ' + esc(miss.join(', ')) : 'Ready to cook'}</span></span>${pl ? `<span class="badge" style="background:#14223D;color:var(--accent)">×${pl.n}</span>` : ''}<span class="plus" aria-hidden="true">${svg(I.plus, 18, 2.2)}</span></button>`;
+      return `<button type="button" class="item" data-a="planAddMeal" data-id="${m.id}" style="min-height:64px"><span class="stack" style="flex:1;min-width:0"><span class="nm">${mealIcons(m)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.name)}</span></span><span class="sub" style="${miss.length ? '' : 'color:var(--p)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${miss.length ? 'Missing ' + esc(miss.join(', ')) : 'Ready to cook'}</span></span>${pl ? `<span class="badge" style="background:var(--accent-bg);color:var(--accent)">×${pl.n}</span>` : ''}<span class="plus" aria-hidden="true">${svg(I.plus, 18, 2.2)}</span></button>`;
     }).join('') : `<div class="empty">No saved meals yet.</div>`}
       <div style="padding:18px 0"><button type="button" class="btn-soft" data-a="goMeals">Create a new meal</button></div></div>
   </div></div>`;
@@ -1176,6 +1178,7 @@ function shopText() {
 
 /* ---------- main render ---------- */
 function render() {
+  document.documentElement.dataset.mode = ui.app;
   const scrolls = {};
   document.querySelectorAll('[data-scroll]').forEach((el) => { scrolls[el.dataset.scroll] = el.scrollTop; });
   let main = '', html;
@@ -1472,12 +1475,12 @@ function sugHtml() {
     const t = !usdaKey() ? 'No suggestion for "' + esc(q) + '". Add a free USDA key in Settings to look up more foods.' : u === 'loading' ? 'Looking up "' + esc(q) + '" in USDA…' : u === 'badkey' ? 'USDA didn\'t accept your key. Check it in Settings.' : u === 'error' ? 'Couldn\'t reach USDA. Enter the values yourself or try again later.' : u === 'done' ? 'No suggestion for "' + esc(q) + '". Enter the values from the label.' : '';
     return t ? `<span class="muted" style="font-size:12px;line-height:1.45;display:block">${t}</span>` : '';
   }
-  return `<section class="card stack" aria-label="Suggestion" style="background:#14223D;border:1px solid #2B4A80;gap:2px;padding:10px 10px 6px 14px">
-    <span class="rowc" style="justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9CC2FF">Suggestion<button type="button" class="iconbtn" aria-label="Hide suggestion" data-a="sugHide" style="width:32px;height:28px;color:var(--muted)">${svg(I.x, 14)}</button></span>
+  return `<section class="card stack" aria-label="Suggestion" style="background:var(--accent-bg);border:1px solid var(--accent-line);gap:2px;padding:10px 10px 6px 14px">
+    <span class="rowc" style="justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-soft)">Suggestion<button type="button" class="iconbtn" aria-label="Hide suggestion" data-a="sugHide" style="width:32px;height:28px;color:var(--muted)">${svg(I.x, 14)}</button></span>
     ${items.map((x, i) => {
       const u = x.unit === 'ml' ? 'ml' : 'g'; const det = EXK.filter(([k]) => hasV(x[k + '100'])).length;
       const pt = x.portions && x.portions.length ? x.portions.map((p) => esc(p.label) + ' = ' + fmt(p.g) + ' ' + u).join(' · ') : x.src === 'usda' ? 'portion sizes load on Use' : '';
-      return `<div class="rowc" style="gap:10px;padding:8px 0;${i ? 'border-top:1px solid #23395F' : ''}">
+      return `<div class="rowc" style="gap:10px;padding:8px 0;${i ? 'border-top:1px solid var(--accent-line2)' : ''}">
         <span class="stack" style="flex:1;min-width:0;gap:3px"><span style="font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}${x.brand ? ' <span class="muted" style="font-weight:400">· ' + esc(x.brand) + '</span>' : ''}</span>
           <span class="muted num" style="font-size:12px">${fmt(x.kcal100 || 0)} kcal · P ${fmtN(x.p100 || 0)} · C ${fmtN(x.c100 || 0)} · F ${fmtN(x.f100 || 0)} per 100 ${u}</span>
           <span class="muted" style="font-size:12px">${[pt, det ? (det === 4 ? '+ sat. fat, sugar, fibre, salt' : '+ ' + det + ' of 4 details') : '', SRC[x.src]].filter(Boolean).join(' · ')}</span></span>
@@ -1615,6 +1618,12 @@ const A = {
   tAdv() { ui.tAdv = !ui.tAdv; },
   hAdv() { ui.hAdv = !ui.hAdv; },
   grpRename(el) { const g = groupOf(el.dataset.id); ui.rename = { gid: g.id, val: g.custom || '', auto: autoName(g.ts) }; setTimeout(() => { const i = document.getElementById('rnIn'); if (i) { i.focus(); i.select(); } }, 30); },
+  grpDelete(el) {
+    const g = groupOf(el.dataset.id); if (!g) return;
+    const es = g.entries; const back = es.some((e) => e.st);
+    es.forEach((e) => giveStash(e.st)); S.log = S.log.filter((e) => e.gid !== g.id); delete ui.open[g.id]; save();
+    toast(g.name + ' deleted' + (back ? ' · back in Stash' : ''), null, () => { es.forEach((e) => { const f = food(e.foodId); if (e.st && f) e.st = takeStash(f, e.st.g); S.log.push(e); }); ui.open[g.id] = true; });
+  },
   rnSugg(el) { document.getElementById('rnIn').value = el.dataset.k; A.rnSave(); },
   rnSave() {
     const v = document.getElementById('rnIn').value.trim(); const r = ui.rename;
