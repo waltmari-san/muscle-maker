@@ -512,6 +512,11 @@ function entryRow(e, tg, maxK, ic) {
       ${splitBar(e, maxK)}
     </div></button>`;
 }
+/* rolled-out meal: its total macros in grams, right under the bar */
+function mealMacros(g) {
+  const m = [['p', 'Protein', g.p], ['c', 'Carbs', g.c], ['f', 'Fat', g.f], ...(g.al > 0.05 ? [['al', 'Alcohol', g.al]] : [])];
+  return `<div class="rowc num" aria-label="Meal macros" style="column-gap:14px;row-gap:4px;flex-wrap:wrap;font-size:13px;margin-top:2px">${m.map(([k, l, v]) => `<span class="rowc" style="gap:5px"><span class="dot" style="width:6px;height:6px;background:var(--${k})"></span><span class="muted">${l}</span><span style="font-weight:600;color:var(--text)">${v >= 10 ? fmt(v) : fmtN(v)} g</span></span>`).join('')}</div>`;
+}
 function groupRow(g, tg, maxK) {
   const open = !!ui.open[g.id];
   const icons = []; g.entries.forEach((e) => { const f = food(e.foodId); if (f && f.icon && !icons.includes(f.icon) && icons.length < 3) icons.push(f.icon); });
@@ -522,6 +527,7 @@ function groupRow(g, tg, maxK) {
         <div class="between" style="align-items:baseline;width:100%"><span class="muted num" style="font-size:12px">${hm(g.ts)} · ${g.entries.length} ${g.entries.length === 1 ? 'item' : 'items'}</span><span class="num" style="font-size:16px;font-weight:600">${fmt(g.kcal)}</span></div>
         <div class="between" style="align-items:baseline;width:100%"><span class="rowc" style="gap:8px;font-size:16px;font-weight:600;min-width:0">${icons.map((k) => icon(k, 18, 'var(--accent)')).join('')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.name)}</span><span class="muted">${chevron(open)}</span></span><span class="muted num" style="font-size:12px;white-space:nowrap">${tg.kcal ? Math.round(g.kcal / tg.kcal * 100) : 0}% of day</span></div>
         <div style="width:100%">${splitBar(g, maxK)}</div>
+        ${open ? mealMacros(g) : ''}
       </button>
       ${open ? `<div class="stack" style="margin-top:12px;padding-left:12px;border-left:1px solid var(--line2)">
         ${g.entries.map((e) => { const f = food(e.foodId); const ic = f && f.icon ? f.icon : null; return `<button type="button" data-a="editEntry" data-id="${e.id}" class="between" style="border:0;border-bottom:1px solid #1B2232;background:none;padding:10px 0;text-align:left;width:100%;min-height:52px">
